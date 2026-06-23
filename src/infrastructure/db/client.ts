@@ -1,6 +1,7 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "./schema";
+import { sql } from "drizzle-orm";
 
 /**
  * Database client — infrastructure layer only.
@@ -23,3 +24,14 @@ const client = postgres(process.env.DATABASE_URL, {
 export const db = drizzle(client, { schema });
 
 export type Db = typeof db;
+
+export async function withTenant<T>(
+  orgId: string, 
+  callback: (tx: Parameters<Parameters<typeof db.transaction>[0]>[0]) => Promise<T>
+): Promise<T> {
+  return await db.transaction(async (tx) => {
+    // Set the tenant context securely for this transaction block
+    await tx.execute(sql`SET LOCAL app.current_org_id = ${orgId}`);
+    return await callback(tx);
+  });
+}
