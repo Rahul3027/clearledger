@@ -1,3 +1,35 @@
 {
-  "extends": ["next/core-web-vitals", "next/typescript"]
+  "extends": ["next/core-web-vitals", "next/typescript"],
+  "overrides": [
+    {
+      "files": ["src/domain/**/*.ts", "src/domain/**/*.tsx"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "@supabase/supabase-js",
+                "message": "Domain layer must not import Supabase SDK directly."
+              },
+              {
+                "name": "@supabase/ssr",
+                "message": "Domain layer must not import Supabase SSR directly."
+              },
+              {
+                "name": "drizzle-orm",
+                "message": "Domain layer must be database-agnostic. Do not import Drizzle."
+              }
+            ],
+            "patterns": [
+              {
+                "group": ["next/*"],
+                "message": "Domain layer must be framework-agnostic. Do not import from next/*."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
 }
