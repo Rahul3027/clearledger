@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { db } from "@/infrastructure/db/client";
+import { db, withTenant } from "@/infrastructure/db/client";
 import { extractionJobs, canonicalTransactions, connectors } from "@/infrastructure/db/schema/ingestion";
 import { auditOutbox } from "@/infrastructure/db/schema/audit";
 import { getStorageAdapter } from "@/infrastructure/storage/supabase-storage-adapter";
@@ -23,8 +23,7 @@ export async function POST(request: Request) {
     }
 
     // 1. Transaction to fetch connector and create job
-    const setupResult = await db.transaction(async (tx) => {
-      await tx.execute(sql`SET LOCAL app.current_org_id = ${orgId}`);
+    const setupResult = await withTenant(orgId, async (tx) => {
 
       const dbConnector = await tx.query.connectors.findFirst({
         where: eq(connectors.id, dbConnectorId),
@@ -89,8 +88,7 @@ export async function POST(request: Request) {
         const normalizer = new Normalizer();
         const dqe = new DqeEngine(DEFAULT_DQE_CONFIG);
 
-        await db.transaction(async (tx) => {
-          await tx.execute(sql`SET LOCAL app.current_org_id = ${orgId}`);
+        await withTenant(orgId, async (tx) => {
 
           const recordsToInsert = [];
           const dqeEvaluations = [];
@@ -252,8 +250,7 @@ export async function POST(request: Request) {
 }
 
 async function markJobFailed(jobId: string, orgId: string, errorDetail: string) {
-  await db.transaction(async (tx) => {
-    await tx.execute(sql`SET LOCAL app.current_org_id = ${orgId}`);
+  await withTenant(orgId, async (tx) => {
     await tx.update(extractionJobs)
       .set({ 
         status: "FAILED", 
@@ -268,8 +265,7 @@ async function finishJob(
   jobId: string, orgId: string, extracted: number, mapped: number, 
   quarantined: number, rejected: number, errorDetails: any, completedAt: Date
 ) {
-  await db.transaction(async (tx) => {
-    await tx.execute(sql`SET LOCAL app.current_org_id = ${orgId}`);
+  await withTenant(orgId, async (tx) => {
     await tx.update(extractionJobs)
       .set({ 
         status: "COMPLETED", 

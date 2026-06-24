@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { db } from "@/infrastructure/db/client";
+import { db, withTenant } from "@/infrastructure/db/client";
 import { canonicalTransactions } from "@/infrastructure/db/schema/ingestion";
 import { reconciliationRuns, reconciliationResults } from "@/infrastructure/db/schema/reconciliation";
 import { auditOutbox } from "@/infrastructure/db/schema/audit";
@@ -25,8 +25,7 @@ export async function POST(request: Request) {
     }
 
     // 1. Initialize Run and emit START audit event
-    const runRecord = await db.transaction(async (tx) => {
-      await tx.execute(sql`SET LOCAL app.current_org_id = ${orgId}`);
+    const runRecord = await withTenant(orgId, async (tx) => {
       
       const [run] = await tx.insert(reconciliationRuns).values({
         orgId,
@@ -54,8 +53,7 @@ export async function POST(request: Request) {
       // Actually, we should wrap the whole read/write in one massive transaction or segmented.
       // We will do segmented for safety.
       const fetchRecords = async (domainId: string) => {
-        return await db.transaction(async (tx) => {
-          await tx.execute(sql`SET LOCAL app.current_org_id = ${orgId}`);
+        return await withTenant(orgId, async (tx) => {
           return tx.query.canonicalTransactions.findMany({
             where: and(
               eq(canonicalTransactions.periodKey, periodKey),
@@ -90,8 +88,7 @@ export async function POST(request: Request) {
       const results = engine.runReconciliation(sourcePool, targetPool);
 
       // 4. Save Results and emit COMPLETED audit event
-      await db.transaction(async (tx) => {
-        await tx.execute(sql`SET LOCAL app.current_org_id = ${orgId}`);
+      await withTenant(orgId, async (tx) => {
 
         const resultsToInsert = results.map(r => ({
           orgId,
@@ -155,8 +152,7 @@ export async function POST(request: Request) {
 
     } catch (engineError) {
       // Mark run as failed
-      await db.transaction(async (tx) => {
-        await tx.execute(sql`SET LOCAL app.current_org_id = ${orgId}`);
+      await withTenant(orgId, async (tx) => {
         await tx.update(reconciliationRuns).set({
           status: "FAILED",
           completedAt: new Date(),

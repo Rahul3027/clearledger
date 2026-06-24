@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { db } from "@/infrastructure/db/client";
+import { db, withTenant } from "@/infrastructure/db/client";
 import { reconciliationResults } from "@/infrastructure/db/schema/reconciliation";
 import { auditOutbox } from "@/infrastructure/db/schema/audit";
 import { and, eq, sql } from "drizzle-orm";
@@ -20,8 +20,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing required fields: resultId, reason" }, { status: 400 });
     }
 
-    await db.transaction(async (tx) => {
-      await tx.execute(sql`SET LOCAL app.current_org_id = ${orgId}`);
+    await withTenant(orgId, async (tx) => {
 
       // 1. Fetch current result to verify existence
       const currentResult = await tx.query.reconciliationResults.findFirst({

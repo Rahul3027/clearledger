@@ -15,8 +15,13 @@ import { NextResponse, type NextRequest } from "next/server";
  * This middleware extracts and forwards the validated org_id only.
  */
 export async function middleware(request: NextRequest) {
+  // 1. Strip incoming spoofed headers unconditionally
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.delete("x-org-id");
+  requestHeaders.delete("x-user-id");
+
   let response = NextResponse.next({
-    request: { headers: request.headers },
+    request: { headers: requestHeaders },
   });
 
   const supabase = createServerClient(
@@ -30,14 +35,14 @@ export async function middleware(request: NextRequest) {
         set(name: string, value: string, options: Record<string, unknown>) {
           request.cookies.set({ name, value, ...options } as never);
           response = NextResponse.next({
-            request: { headers: request.headers },
+            request: { headers: requestHeaders },
           });
           response.cookies.set({ name, value, ...options } as never);
         },
         remove(name: string, options: Record<string, unknown>) {
           request.cookies.set({ name, value: "", ...options } as never);
           response = NextResponse.next({
-            request: { headers: request.headers },
+            request: { headers: requestHeaders },
           });
           response.cookies.set({ name, value: "", ...options } as never);
         },
@@ -52,7 +57,6 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  // Allow public routes without auth
   const isPublicRoute =
     pathname.startsWith("/auth/") ||
     pathname === "/api/health" ||
@@ -66,12 +70,25 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user) {
-    // Forward validated org_id via header so route handlers can read it
-    // without re-fetching the session. The DB client uses this to set
-    // SET LOCAL app.current_org_id before each query.
     const orgId = user.user_metadata?.org_id as string | undefined;
     if (orgId) {
-      response.headers.set("x-org-id", orgId);
+      // 2. Inject the validated identity into the request headers for downstream routes
+      requestHeaders.set("x-org-id", orgId);
+      requestHeaders.set("x-user-id", user.id);
+      
+      // 3. Rebuild the response so Next.js propagates the newly injected request headers
+      const finalResponse = NextResponse.next({
+        request: { headers: requestHeaders },
+      });
+      
+      // 4. Preserve any cookies that Supabase might have refreshed
+      response.cookies.getAll().forEach((cookie) => {
+        finalResponse.cookies.set(cookie.name, cookie.value);
+      });
+      response = finalResponse;
+    } else if (!isPublicRoute) {
+      // 5. Reject authenticated users missing an organization context
+      return NextResponse.json({ error: "Unauthorized: Missing tenant context" }, { status: 401 });
     }
   }
 

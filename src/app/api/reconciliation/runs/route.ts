@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { db } from "@/infrastructure/db/client";
+import { db, withTenant } from "@/infrastructure/db/client";
 import { reconciliationRuns } from "@/infrastructure/db/schema/reconciliation";
 import { desc, sql } from "drizzle-orm";
 
@@ -10,8 +10,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    return await db.transaction(async (tx) => {
-      await tx.execute(sql`SET LOCAL app.current_org_id = ${orgId}`);
+    return await withTenant(orgId, async (tx) => {
       
       const records = await tx.select()
         .from(reconciliationRuns)

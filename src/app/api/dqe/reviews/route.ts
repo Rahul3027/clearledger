@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import { db } from "@/infrastructure/db/client";
+import { db, withTenant } from "@/infrastructure/db/client";
 import { dqReviews } from "@/infrastructure/db/schema/dqe";
 import { auditOutbox } from "@/infrastructure/db/schema/audit";
-import { sql } from "drizzle-orm";
 
 export async function POST(request: Request) {
   const orgId = request.headers.get("x-org-id");
@@ -27,8 +26,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid action type" }, { status: 400 });
     }
 
-    await db.transaction(async (tx) => {
-      await tx.execute(sql`SET LOCAL app.current_org_id = ${orgId}`);
+    await withTenant(orgId, async (tx) => {
 
       // 1. Insert review record (do NOT update canonical_transactions.dq_action)
       const [reviewRecord] = await tx.insert(dqReviews).values({
