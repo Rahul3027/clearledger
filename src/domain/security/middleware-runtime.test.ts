@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-imports */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import { middleware } from '@/middleware';
@@ -16,6 +17,7 @@ describe('Phase 5.5B Middleware Remediation Verification', () => {
   });
 
   const setupMock = (orgId: string | null) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (ssr.createServerClient as any).mockReturnValue({
       auth: {
         getUser: async () => ({

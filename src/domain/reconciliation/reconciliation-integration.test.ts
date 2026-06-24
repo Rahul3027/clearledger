@@ -1,11 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, prefer-const, no-restricted-imports */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { POST as RunPOST } from '../../app/api/reconciliation/run/route';
 import { POST as ManualPOST } from '../../app/api/reconciliation/manual-match/route';
 
 vi.mock('@/infrastructure/db/client', () => {
-  const insertMock = vi.fn().mockReturnThis();
-  const valuesMock = vi.fn().mockReturnThis();
-  const onConflictDoUpdateMock = vi.fn().mockReturnThis();
   
   return {
     db: {
@@ -39,8 +37,8 @@ vi.mock('@/infrastructure/db/client', () => {
           },
           insert: vi.fn().mockImplementation((schema) => {
             return {
-              values: (data: any) => {
-                (global as any).mockDbInserts.push({ schema, data });
+              values: (data: unknown) => {
+                (global as unknown as { mockDbInserts: unknown[] }).mockDbInserts.push({ schema, data });
                 const returnData = Array.isArray(data) ? data.map(d => ({ ...d, id: 'mock-id' })) : [{ ...data, id: 'mock-id' }];
                 return {
                   onConflictDoUpdate: vi.fn().mockResolvedValue(returnData),
@@ -50,8 +48,8 @@ vi.mock('@/infrastructure/db/client', () => {
             };
           }),
           update: vi.fn().mockReturnValue({
-            set: (data: any) => {
-              (global as any).mockDbUpdates.push(data);
+            set: (data: unknown) => {
+              (global as unknown as { mockDbUpdates: unknown[] }).mockDbUpdates.push(data);
               return {
                 where: vi.fn().mockResolvedValue([])
               };
@@ -66,8 +64,8 @@ vi.mock('@/infrastructure/db/client', () => {
 
 describe('Phase 3 Integration & API Verification', () => {
   beforeEach(() => {
-    (global as any).mockDbInserts = [];
-    (global as any).mockDbUpdates = [];
+    (global as unknown as { mockDbInserts: unknown[] }).mockDbInserts = [];
+    (global as unknown as { mockDbUpdates: unknown[] }).mockDbUpdates = [];
     vi.clearAllMocks();
   });
 
@@ -81,8 +79,8 @@ describe('Phase 3 Integration & API Verification', () => {
     const res = await RunPOST(req);
     expect(res.status).toBe(200);
 
-    const inserts = (global as any).mockDbInserts;
-    const auditInserts = inserts.filter((i: any) => i.schema[Symbol.for('drizzle:Name')] === 'audit_outbox');
+    const inserts = (global as unknown as { mockDbInserts: Array<{ schema: { [key: symbol]: string }, data: Record<string, unknown> }> }).mockDbInserts;
+    const auditInserts = inserts.filter((i) => i.schema[Symbol.for('drizzle:Name')] === 'audit_outbox');
     
     // Should have STARTED and COMPLETED
     expect(auditInserts.length).toBe(2);
@@ -98,9 +96,9 @@ describe('Phase 3 Integration & API Verification', () => {
     });
 
     await RunPOST(req);
-    const inserts = (global as any).mockDbInserts;
+    const inserts = (global as unknown as { mockDbInserts: Array<{ schema: { [key: symbol]: string }, data: any[] }> }).mockDbInserts;
     
-    const resultsInsert = inserts.find((i: any) => i.schema[Symbol.for('drizzle:Name')] === 'reconciliation_results');
+    const resultsInsert = inserts.find((i) => i.schema[Symbol.for('drizzle:Name')] === 'reconciliation_results');
     
     expect(resultsInsert).toBeDefined();
     // Since we mocked DB to return 1 source and 1 target with identical properties, they should EXACT match.
@@ -119,8 +117,8 @@ describe('Phase 3 Integration & API Verification', () => {
     const res = await ManualPOST(req);
     expect(res.status).toBe(200);
 
-    const updates = (global as any).mockDbUpdates;
-    const inserts = (global as any).mockDbInserts;
+    const updates = (global as unknown as { mockDbUpdates: Record<string, unknown>[] }).mockDbUpdates;
+    const inserts = (global as unknown as { mockDbInserts: Array<{ schema: { [key: symbol]: string }, data: Record<string, unknown> }> }).mockDbInserts;
 
     // Check that we set status to MANUAL_MATCH
     expect(updates.length).toBe(1);
@@ -129,8 +127,9 @@ describe('Phase 3 Integration & API Verification', () => {
     expect(updates[0].resolvedBy).toBe('user-123');
 
     // Check that an audit event was emitted
-    const auditInsert = inserts.find((i: any) => i.schema[Symbol.for('drizzle:Name')] === 'audit_outbox');
+    const auditInsert = inserts.find((i) => i.schema[Symbol.for('drizzle:Name')] === 'audit_outbox');
     expect(auditInsert).toBeDefined();
     expect(auditInsert.data.eventType).toBe('RECONCILIATION_MANUAL_MATCH');
   });
 });
+

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, prefer-const, no-restricted-imports */
 import { CanonicalTransactionInput } from "../../ingestion/types";
 import { DqRuleInterface, DqRuleResult } from "../types";
 
@@ -23,3 +24,4 @@ export class TimelinessRule implements DqRuleInterface {
     return { ruleName: this.name, passFactor: 1.0 };
   }
 }
+

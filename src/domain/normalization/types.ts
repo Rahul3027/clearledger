@@ -3,7 +3,7 @@ import { CanonicalTransactionInput } from "../ingestion/types";
 export interface NormalizationWarning {
   field: keyof CanonicalTransactionInput | "general";
   message: string;
-  originalValue?: any;
+  originalValue?: unknown;
 }
 
 export interface NormalizationResult {

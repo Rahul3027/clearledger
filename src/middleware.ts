@@ -58,13 +58,14 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const isPublicRoute =
+    pathname === "/login" ||
     pathname.startsWith("/auth/") ||
     pathname === "/api/health" ||
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/favicon");
 
   if (!user && !isPublicRoute) {
-    const loginUrl = new URL("/auth/login", request.url);
+    const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("next", pathname);
     return NextResponse.redirect(loginUrl);
   }

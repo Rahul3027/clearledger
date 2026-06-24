@@ -2,10 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { POST as GeneratePOST } from '../../app/api/reports/evidence-package/generate/route';
 import { GET as DownloadGET } from '../../app/api/reports/evidence-package/download/route';
 import { GET as MetricsGET } from '../../app/api/reports/dashboard-metrics/route';
-import { EvidencePackager } from './evidence-packager';
 
 // Track audit outbox inserts
-const mockAuditOutbox: any[] = [];
+const mockAuditOutbox: Record<string, unknown>[] = [];
 // Track appended files for structure verification
 const mockAppendedFiles: string[] = [];
 
@@ -36,8 +35,8 @@ vi.mock('@/infrastructure/db/client', () => {
       const tx = {
         select: vi.fn().mockReturnValue({
           from: vi.fn().mockImplementation((schema) => {
-            const name = schema[Symbol.for('drizzle:Name')];
-            let data: any[] = [];
+            const name = schema[Symbol.for('drizzle:Name') as keyof typeof schema];
+            let data: unknown[] = [];
             if (name === 'reconciliation_results') data = mockReconResults;
             if (name === 'canonical_transactions') data = mockReconResults; 
             if (name === 'exception_cases') data = mockExceptions;

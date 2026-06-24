@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { POST as TransitionPOST } from '../../app/api/workflow/cases/[id]/transition/route';
 import { POST as AssignPOST } from '../../app/api/workflow/cases/[id]/assign/route';

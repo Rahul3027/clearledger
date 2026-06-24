@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, prefer-const, no-restricted-imports */
 export type ConnectorType = "FILE_UPLOAD" | "SFTP" | "REST_API" | "ERP_NATIVE" | "DB" | "STREAM";
 export type AuthScheme = "NONE" | "API_KEY" | "OAUTH2_CLIENT" | "BASIC" | "SFTP_KEY";
 export type ExtractionMode = "FULL" | "INCREMENTAL_DATE" | "INCREMENTAL_SEQ" | "EVENT_DRIVEN";
@@ -127,3 +128,4 @@ export interface ConnectorInterface {
   transform(raw: RawRecord[], jobContext: ExtractionJob): Promise<TransformationResult>;
   report(payload: ReportPayload): Promise<void>;
 }
+

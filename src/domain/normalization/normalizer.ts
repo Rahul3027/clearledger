@@ -1,4 +1,4 @@
-import { CanonicalTransactionInput } from "../ingestion/types";
+import { CanonicalTransactionInput, DocType } from "../ingestion/types";
 import { NormalizationResult, NormalizerInterface, NormalizationWarning } from "./types";
 
 /**
@@ -60,7 +60,7 @@ export class Normalizer implements NormalizerInterface {
       const upper = normalized.docType.toUpperCase().trim();
       const validTypes = ["INVOICE", "CREDIT_NOTE", "DEBIT_NOTE", "PAYMENT", "JOURNAL", "OTHER"];
       if (validTypes.includes(upper)) {
-        normalized.docType = upper as any;
+        normalized.docType = upper as DocType;
       } else {
         warnings.push({
           field: "docType",

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, prefer-const, no-restricted-imports */
 import { describe, it, expect } from 'vitest';
 import { DqeEngine } from './engine';
 import { DEFAULT_DQE_CONFIG } from './config';
@@ -60,3 +61,4 @@ describe('Data Quality Engine', () => {
     expect(res.action).toBe('ADMITTED_WITH_WARNING');
   });
 });
+

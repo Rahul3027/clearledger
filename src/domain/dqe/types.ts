@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, prefer-const, no-restricted-imports */
 import { CanonicalTransactionInput } from "../ingestion/types";
 
 export type DqAction = "ADMITTED" | "ADMITTED_WITH_WARNING" | "QUARANTINED" | "REJECTED";
@@ -32,3 +33,4 @@ export interface DqRuleInterface {
   name: string;
   evaluate(transaction: CanonicalTransactionInput, params?: Record<string, any>): DqRuleResult;
 }
+

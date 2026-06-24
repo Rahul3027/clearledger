@@ -10,8 +10,8 @@ export class AuditEncoder {
     actorId: string,
     eventType: AuditEventType,
     caseId: string,
-    beforeState?: Record<string, any>,
-    afterState?: Record<string, any>
+    beforeState?: Record<string, unknown>,
+    afterState?: Record<string, unknown>
   ) {
     return {
       orgId,

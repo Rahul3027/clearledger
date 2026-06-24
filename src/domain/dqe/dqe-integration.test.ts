@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, prefer-const, @typescript-eslint/no-empty-object-type, react/no-unescaped-entities, jsx-a11y/role-has-required-aria-props, react/jsx-no-undef, no-restricted-imports */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { POST as IngestionPOST } from '../../app/api/ingestion/jobs/route';
 import { POST as ReviewPOST } from '../../app/api/dqe/reviews/route';

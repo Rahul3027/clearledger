@@ -13,3 +13,4 @@ export * from "./dqe";
 export * from "./reconciliation";
 export * from "./workflow";
 export * from "./reporting";
+export * from "./integrations";

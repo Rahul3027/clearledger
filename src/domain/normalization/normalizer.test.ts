@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { Normalizer } from './normalizer';
 import { CanonicalTransactionInput } from '../ingestion/types';
+import { DocType } from '../ingestion/types';
 
 describe('Normalizer', () => {
   const normalizer = new Normalizer();
@@ -10,7 +11,7 @@ describe('Normalizer', () => {
       sourceConnectorId: 'sys-1',
       domainId: 'VAT',
       datasetLabel: 'sales',
-      docType: 'invoice' as any,
+      docType: 'invoice' as unknown as DocType,
       docNumber: '123',
       docDate: new Date('2026-06-20'),
       periodKey: '',
@@ -40,9 +41,9 @@ describe('Normalizer', () => {
       sourceConnectorId: 'sys-1',
       domainId: 'VAT',
       datasetLabel: 'sales',
-      docType: 'weird_type' as any,
+      docType: 'weird_type' as unknown as DocType,
       docNumber: '123',
-      docDate: null as any,
+      docDate: null as unknown as Date,
       periodKey: '',
       currencyCode: '',
       exchangeRate: 1,

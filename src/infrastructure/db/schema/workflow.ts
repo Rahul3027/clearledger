@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, integer, numeric } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid, integer } from "drizzle-orm/pg-core";
 import { organisations } from "./organisations";
 import { canonicalTransactions } from "./ingestion";
 import { reconciliationResults } from "./reconciliation";

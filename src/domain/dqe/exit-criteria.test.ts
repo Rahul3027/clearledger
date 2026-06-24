@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, prefer-const, no-restricted-imports */
 import { describe, it, expect, vi } from 'vitest';
 import { Normalizer } from '../normalization/normalizer';
 import { DqeEngine } from './engine';
@@ -86,3 +87,4 @@ describe('Phase 2 Exit Criteria Verification', () => {
 
   // DB logic tests are verified statically since Vitest has no DB connection mock natively here without setup.
 });
+

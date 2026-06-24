@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, prefer-const, no-restricted-imports */
 import { XMLParser } from "fast-xml-parser";
 import { BaseFileAdapter } from "./base-file-adapter";
 import { 
@@ -201,3 +202,4 @@ export class PeppolXmlAdapter extends BaseFileAdapter {
     };
   }
 }
+

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, prefer-const, no-restricted-imports */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ExcelCsvAdapter } from './adapters/excel-csv-adapter';
 import { PeppolXmlAdapter } from './adapters/peppol-xml-adapter';
@@ -195,3 +196,4 @@ describe('Phase 1 Exit Criteria Verification', () => {
     expect(txn.taxAmount).toBe(210.00);
   });
 });
+

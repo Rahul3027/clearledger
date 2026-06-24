@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { EvidencePackager } from './evidence-packager';
 import fs from 'fs';
 import path from 'path';
@@ -32,8 +32,8 @@ vi.mock('@/infrastructure/db/client', () => {
     withTenant: vi.fn(async (orgId, cb) => cb({
       select: vi.fn().mockReturnValue({
         from: vi.fn().mockImplementation((schema) => {
-          const name = schema[Symbol.for('drizzle:Name')];
-          let data: any[] = [];
+          const name = schema[Symbol.for('drizzle:Name') as keyof typeof schema];
+          let data: unknown[] = [];
           if (name === 'reconciliation_results') data = mockReconResults;
           if (name === 'canonical_transactions') data = mockReconResults; 
           if (name === 'exception_cases') data = mockExceptions;
@@ -57,9 +57,9 @@ describe('Phase 5 REAL Execution Evidence Verification', () => {
     // We mock the tx object manually just for this call
     const tx = {
       select: () => ({
-        from: (schema: any) => {
-          const name = schema[Symbol.for('drizzle:Name')];
-          let data: any[] = [];
+        from: (schema: { [key: symbol]: string }) => {
+          const name = schema[Symbol.for('drizzle:Name') as keyof typeof schema];
+          let data: unknown[] = [];
           if (name === 'reconciliation_results') data = mockReconResults;
           if (name === 'canonical_transactions') data = mockReconResults; 
           if (name === 'exception_cases') data = mockExceptions;

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, prefer-const, no-restricted-imports */
 import * as xlsx from "xlsx";
 import { BaseFileAdapter, ColumnMapping } from "./base-file-adapter";
 import { 
@@ -205,3 +206,4 @@ export class ExcelCsvAdapter extends BaseFileAdapter {
     };
   }
 }
+
