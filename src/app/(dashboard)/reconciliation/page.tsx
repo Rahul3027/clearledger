@@ -63,11 +63,11 @@ export default async function ReconciliationPage({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 shrink-0">
-        <StatCard title="Total Runs (YTD)" value={totalCount.toString()} />
-        <StatCard title="Success Rate" value="99.2%" />
-        <StatCard title="Unmatched Records" value="220" trend="warning" />
-        <StatCard title="Manual Overrides" value="45" />
-        <StatCard title="Avg Match %" value="99.4%" trend="up" />
+        <StatCard title="Active Runs" value="1" />
+        <StatCard title="Runs Today" value={totalCount.toString()} />
+        <StatCard title="Unmatched Records" value="220" />
+        <StatCard title="Exceptions Created" value="0" />
+        <StatCard title="Avg Match %" value="99.4%" />
       </div>
 
       <RunsTableClient initialData={mappedRuns} pageCount={pageCount} />

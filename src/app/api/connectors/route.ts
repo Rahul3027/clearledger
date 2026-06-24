@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withTenant, db } from "@/infrastructure/db/client";
 import { connectorInstances, connectorDefinitions } from "@/infrastructure/db/schema/integrations";
-import { auditEvents } from "@/infrastructure/db/schema/audit";
+import { auditOutbox } from "@/infrastructure/db/schema/audit";
 import { CredentialManager } from "@/domain/integrations/credential-manager";
 import { eq } from "drizzle-orm";
 
@@ -43,13 +43,15 @@ export async function POST(request: NextRequest) {
       status: 'ACTIVE'
     }).returning();
 
-    await tx.insert(auditEvents).values({
+    const actId = request.headers.get("x-user-id") || "system";
+    await tx.insert(auditOutbox).values({
       orgId,
-      userId: request.headers.get("x-user-id") || "system",
+      actorId: actId,
+      actorType: actId === "system" ? "SYSTEM" : "USER",
       eventType: "CONNECTOR_CREATED",
       resourceType: "CONNECTOR_INSTANCE",
       resourceId: instance.id,
-      details: { definitionId: connectorDefinitionId }
+      afterState: { definitionId: connectorDefinitionId }
     });
 
     return NextResponse.json({ data: instance }, { status: 201 });

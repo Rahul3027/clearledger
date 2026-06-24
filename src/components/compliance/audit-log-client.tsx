@@ -29,7 +29,7 @@ const columns: ColumnDef<AuditEventRow>[] = [
   { accessorKey: "action", header: "Action" },
 ];
 
-export function AuditLogClient({ initialData }: { initialData: AuditEventRow[] }) {
+export function AuditLogClient({ initialData, pageCount }: { initialData: AuditEventRow[], pageCount: number }) {
   const [data] = useState(initialData);
   const [globalFilter, setGlobalFilter] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);

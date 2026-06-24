@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withTenant } from "@/infrastructure/db/client";
 import { connectorInstances } from "@/infrastructure/db/schema/integrations";
-import { auditEvents } from "@/infrastructure/db/schema/audit";
+import { auditOutbox } from "@/infrastructure/db/schema/audit";
 import { CredentialManager } from "@/domain/integrations/credential-manager";
 import { eq, and } from "drizzle-orm";
 
@@ -43,13 +43,15 @@ export async function PATCH(
       .where(eq(connectorInstances.id, params.id))
       .returning();
 
-    await tx.insert(auditEvents).values({
+    const actId = request.headers.get("x-user-id") || "system";
+    await tx.insert(auditOutbox).values({
       orgId,
-      userId: request.headers.get("x-user-id") || "system",
+      actorId: actId,
+      actorType: actId === "system" ? "SYSTEM" : "USER",
       eventType: "CONNECTOR_UPDATED",
       resourceType: "CONNECTOR_INSTANCE",
       resourceId: updated.id,
-      details: { status: updated.status }
+      afterState: { status: updated.status }
     });
 
     return NextResponse.json({ data: updated });

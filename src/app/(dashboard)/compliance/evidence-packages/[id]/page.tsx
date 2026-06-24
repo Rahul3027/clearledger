@@ -15,13 +15,7 @@ export default async function EvidenceDetailPage({ params }: { params: { id: str
       {/* Top Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shrink-0 sticky top-0 z-10 shadow-sm">
         <div>
-          <Breadcrumb 
-            items={[
-              { label: 'Compliance', href: '/compliance' },
-              { label: 'Evidence Packages', href: '/compliance/evidence-packages' },
-              { label: id, href: '#' }
-            ]} 
-          />
+          <Breadcrumb />
           <div className="flex items-center gap-3 mt-1">
             <h1 className="text-xl font-bold text-gray-900">{id}</h1>
             <StatusBadge variant="success">Ready</StatusBadge>

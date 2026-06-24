@@ -45,7 +45,7 @@ const columns: ColumnDef<IngestionJobRow>[] = [
   { accessorKey: "completedAt", header: "Completed At" },
 ];
 
-export function IngestionClient({ initialData }: { initialData: IngestionJobRow[] }) {
+export function IngestionClient({ initialData, pageCount }: { initialData: IngestionJobRow[], pageCount: number }) {
   const [data] = useState(initialData);
   const [globalFilter, setGlobalFilter] = useState("");
   const [dragActive, setDragActive] = useState(false);

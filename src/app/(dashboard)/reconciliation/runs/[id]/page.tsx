@@ -31,9 +31,9 @@ export default async function RunDetailPage({ params }: { params: { id: string }
         sourceDoc: m.sourcePlatformId.substring(0, 8),
         counterparty: "Unknown",
         amount: "—",
-        matchType: m.strategyUsed || "Exact",
+        matchType: (m.strategyUsed === "exact" ? "Exact" : "Manual") as "Exact" | "Tolerance" | "Manual" | "Unmatched",
         confidence: Number(m.confidenceScore) || 1.0,
-        status: m.matchStatus
+        status: (m.matchStatus === "MATCHED" ? "Matched" : m.matchStatus === "UNMATCHED" ? "Unmatched" : "Partial") as "Matched" | "Partial" | "Unmatched"
       }));
 
       unmatched = unmatchedResults.map(u => ({
@@ -67,12 +67,7 @@ export default async function RunDetailPage({ params }: { params: { id: string }
       {/* Top Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shrink-0 sticky top-0 z-10 shadow-sm">
         <div>
-          <Breadcrumb 
-            items={[
-              { label: 'Reconciliation', href: '/reconciliation' },
-              { label: id, href: '#' }
-            ]} 
-          />
+          <Breadcrumb />
           <div className="flex items-center gap-3 mt-1">
             <h1 className="text-xl font-bold text-gray-900">Run {id}</h1>
             <StatusBadge variant="success">COMPLETED</StatusBadge>

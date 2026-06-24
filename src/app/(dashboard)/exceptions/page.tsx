@@ -34,7 +34,7 @@ export default async function ExceptionsPage({
   // Map to expected frontend type
   const mappedExceptions = cases.map(c => ({
     id: c.id,
-    priority: c.priority === "CRITICAL" ? "High" : c.priority === "HIGH" ? "High" : c.priority === "MEDIUM" ? "Medium" : "Low",
+    priority: (c.priority === "CRITICAL" ? "High" : c.priority === "HIGH" ? "High" : c.priority === "MEDIUM" ? "Medium" : "Low") as "High" | "Medium" | "Low",
     status: c.status,
     documentNo: c.sourcePlatformId.substring(0, 8),
     counterparty: "Unknown", // Would join canonical_transactions
@@ -42,7 +42,7 @@ export default async function ExceptionsPage({
     variance: "—",
     amount: "—",
     created: c.createdAt.toISOString().split("T")[0],
-    sla: "On Track",
+    sla: "On Track" as "On Track" | "At Risk" | "Breached",
     owner: c.assignedTo || "Unassigned"
   }));
 

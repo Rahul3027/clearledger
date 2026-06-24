@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { WebhookManager } from "@/domain/integrations/webhooks";
 import { withTenant, db } from "@/infrastructure/db/client";
-import { auditEvents } from "@/infrastructure/db/schema/audit";
+import { auditOutbox } from "@/infrastructure/db/schema/audit";
 
 export async function POST(
   request: NextRequest,
@@ -40,13 +40,14 @@ export async function POST(
     );
 
     await withTenant(orgId, async (tx) => {
-      await tx.insert(auditEvents).values({
+      await tx.insert(auditOutbox).values({
         orgId,
-        userId: "system",
+        actorId: "system",
+        actorType: "SYSTEM",
         eventType: "WEBHOOK_RECEIVED",
         resourceType: "WEBHOOK_EVENT",
         resourceId: eventId,
-        details: { provider: params.provider, externalEventId }
+        afterState: { provider: params.provider, externalEventId }
       });
     });
 

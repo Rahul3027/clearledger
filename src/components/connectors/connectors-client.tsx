@@ -58,7 +58,7 @@ const columns: ColumnDef<ConnectorRow>[] = [
   )},
 ];
 
-export function ConnectorsClient({ initialData }: { initialData: ConnectorRow[] }) {
+export function ConnectorsClient({ initialData, pageCount }: { initialData: ConnectorRow[], pageCount: number }) {
   const [data] = useState(initialData);
   const [globalFilter, setGlobalFilter] = useState("");
 

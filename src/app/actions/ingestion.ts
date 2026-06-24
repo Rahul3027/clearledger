@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/infrastructure/db/client";
-import { extractionJobs, auditEvents } from "@/infrastructure/db/schema";
+import { extractionJobs, auditOutbox } from "@/infrastructure/db/schema";
 import { revalidatePath } from "next/cache";
 
 export async function uploadFileAction(formData: FormData) {
@@ -28,11 +28,12 @@ export async function uploadFileAction(formData: FormData) {
     });
 
     // 2. Audit
-    await tx.insert(auditEvents).values({
+    await tx.insert(auditOutbox).values({
       orgId,
       actorId: "user",
-      action: "FILE_UPLOAD",
-      event: `Uploaded file: ${file.name}`
+      actorType: "USER",
+      eventType: "FILE_UPLOAD",
+      beforeState: { fileName: file.name }
     });
   });
 

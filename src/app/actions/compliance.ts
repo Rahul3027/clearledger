@@ -2,7 +2,7 @@
 "use server";
 
 import { db } from "@/infrastructure/db/client";
-import { auditEvents } from "@/infrastructure/db/schema";
+import { auditOutbox } from "@/infrastructure/db/schema";
 import { revalidatePath } from "next/cache";
 
 export async function generateEvidencePackageAction(formData: FormData) {
@@ -13,11 +13,12 @@ export async function generateEvidencePackageAction(formData: FormData) {
   await db.transaction(async (tx) => {
     // We would insert into an evidencePackages table if it existed in the schema
     
-    await tx.insert(auditEvents).values({
+    await tx.insert(auditOutbox).values({
       orgId,
       actorId: "user",
-      action: "EVIDENCE_PACKAGE_GENERATED",
-      event: `Generated evidence package for period ${period}`
+      actorType: "USER",
+      eventType: "EVIDENCE_PACKAGE_GENERATED",
+      beforeState: { period, description }
     });
   });
 

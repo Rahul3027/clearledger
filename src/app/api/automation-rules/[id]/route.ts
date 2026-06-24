@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withTenant } from "@/infrastructure/db/client";
 import { automationRules } from "@/infrastructure/db/schema/integrations";
-import { auditEvents } from "@/infrastructure/db/schema/audit";
+import { auditOutbox } from "@/infrastructure/db/schema/audit";
 import { eq, and } from "drizzle-orm";
 
 export async function PATCH(
@@ -37,13 +37,14 @@ export async function PATCH(
       .where(eq(automationRules.id, params.id))
       .returning();
 
-    await tx.insert(auditEvents).values({
+    await tx.insert(auditOutbox).values({
       orgId,
-      userId,
+      actorId: userId,
+      actorType: userId === "system" ? "SYSTEM" : "USER",
       eventType: "AUTOMATION_RULE_UPDATED",
       resourceType: "AUTOMATION_RULE",
       resourceId: updated.id,
-      details: { version: updated.version, isActive: updated.isActive }
+      afterState: { version: updated.version, isActive: updated.isActive }
     });
 
     return NextResponse.json({ data: updated });

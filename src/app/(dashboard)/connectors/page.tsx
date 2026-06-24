@@ -43,7 +43,7 @@ export default async function ConnectorsPage({
     status: c.status === "ACTIVE" ? "Active" : c.status === "SUSPENDED" ? "Error" : c.status,
     lastSync: "Unknown", // Would query extractionJobs
     failureCount: 0,
-    health: c.status === "ACTIVE" ? "Healthy" : c.status === "SUSPENDED" ? "Down" : "Warning"
+    health: (c.status === "ACTIVE" ? "Healthy" : c.status === "SUSPENDED" ? "Down" : "Warning") as "Healthy" | "Warning" | "Down"
   }));
 
   return (
@@ -61,10 +61,10 @@ export default async function ConnectorsPage({
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 shrink-0">
         <StatCard title="Total Connectors" value={totalCount.toString()} />
-        <StatCard title="Failed Syncs" value="0" trend="warning" />
+        <StatCard title="Failed Syncs" value="0" />
         <StatCard title="Syncs Today" value="0" />
         <StatCard title="Automation Rules" value="8" />
-        <StatCard title="Webhook Events" value="14.2k" trend="up" />
+        <StatCard title="Webhook Events" value="14.2k" />
       </div>
 
       <ConnectorsClient initialData={mappedConnectors} pageCount={pageCount} />

@@ -21,17 +21,17 @@ export async function GET(request: Request) {
   try {
     return await withTenant(orgId, async (tx) => {
       
-      let query = tx.select().from(auditOutbox).where(eq(auditOutbox.orgId, orgId));
+      const conditions = [eq(auditOutbox.orgId, orgId)];
       
       if (startDate) {
-        query = query.where(sql`${auditOutbox.createdAt} >= ${new Date(startDate).toISOString()}`);
+        conditions.push(sql`${auditOutbox.createdAt} >= ${new Date(startDate).toISOString()}`);
       }
       if (endDate) {
-        query = query.where(sql`${auditOutbox.createdAt} <= ${new Date(endDate).toISOString()}`);
+        conditions.push(sql`${auditOutbox.createdAt} <= ${new Date(endDate).toISOString()}`);
       }
       
       // Limit to 5000 in V1 to prevent payload crashes on standard JSON exports
-      const activities = await query.orderBy(desc(auditOutbox.createdAt)).limit(5000);
+      const activities = await tx.select().from(auditOutbox).where(and(...conditions)).orderBy(desc(auditOutbox.createdAt)).limit(5000);
 
       // Audit the Audit query
       const outboxEvent = AuditEncoder.encodeEvent(

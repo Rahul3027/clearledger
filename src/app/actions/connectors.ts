@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/infrastructure/db/client";
-import { connectors, extractionJobs, auditEvents } from "@/infrastructure/db/schema";
+import { connectors, extractionJobs, auditOutbox } from "@/infrastructure/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
@@ -23,11 +23,12 @@ export async function triggerSyncAction(formData: FormData) {
       startedAt: new Date()
     });
 
-    await tx.insert(auditEvents).values({
+    await tx.insert(auditOutbox).values({
       orgId,
       actorId: "system",
-      action: "MANUAL_SYNC_TRIGGERED",
-      event: `Manual sync triggered for connector ${connectorId}`
+      actorType: "SYSTEM",
+      eventType: "MANUAL_SYNC_TRIGGERED",
+      beforeState: { connectorId }
     });
   });
 
@@ -44,11 +45,12 @@ export async function disableConnectorAction(formData: FormData) {
       .set({ status: "SUSPENDED" })
       .where(eq(connectors.id, connectorId));
 
-    await tx.insert(auditEvents).values({
+    await tx.insert(auditOutbox).values({
       orgId,
       actorId: "system",
-      action: "CONNECTOR_DISABLED",
-      event: `Connector ${connectorId} suspended`
+      actorType: "SYSTEM",
+      eventType: "CONNECTOR_DISABLED",
+      beforeState: { connectorId }
     });
   });
 

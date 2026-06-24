@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withTenant } from "@/infrastructure/db/client";
 import { automationRules } from "@/infrastructure/db/schema/integrations";
-import { auditEvents } from "@/infrastructure/db/schema/audit";
+import { auditOutbox } from "@/infrastructure/db/schema/audit";
 import { eq } from "drizzle-orm";
 
 export async function GET(request: NextRequest) {
@@ -34,13 +34,14 @@ export async function POST(request: NextRequest) {
       updatedBy: userId
     }).returning();
 
-    await tx.insert(auditEvents).values({
+    await tx.insert(auditOutbox).values({
       orgId,
-      userId,
+      actorId: userId,
+      actorType: userId === "system" ? "SYSTEM" : "USER",
       eventType: "AUTOMATION_RULE_CREATED",
       resourceType: "AUTOMATION_RULE",
       resourceId: rule.id,
-      details: { name: rule.name, actionType: rule.actionType }
+      afterState: { name: rule.name, actionType: rule.actionType }
     });
 
     return NextResponse.json({ data: rule }, { status: 201 });

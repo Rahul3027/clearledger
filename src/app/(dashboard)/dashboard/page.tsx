@@ -26,7 +26,7 @@ export default async function DashboardOverviewPage() {
     totalReconCount = reconCount;
 
     recentExceptions = await db.select().from(exceptionCases).orderBy(desc(exceptionCases.createdAt)).limit(3);
-    recentAuditEvents = await db.select().from(auditEvents).orderBy(desc(auditEvents.timestamp)).limit(3);
+    recentAuditEvents = await db.select().from(auditEvents).orderBy(desc(auditEvents.ts)).limit(3);
   } catch (e) {
     console.error("Database connection failed, using empty states.", e);
   }

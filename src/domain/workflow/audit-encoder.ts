@@ -16,7 +16,7 @@ export class AuditEncoder {
     return {
       orgId,
       actorId,
-      actorType: "USER", // Assuming workflow mutations are always user-driven
+      actorType: "USER" as "USER" | "SYSTEM", // Assuming workflow mutations are always user-driven
       eventType,
       resourceType: "EXCEPTION_CASE",
       resourceId: caseId,

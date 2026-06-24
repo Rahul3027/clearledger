@@ -122,7 +122,7 @@ const columns: ColumnDef<ExceptionRow>[] = [
   },
 ];
 
-export function ExceptionQueueClient({ initialData }: { initialData: ExceptionRow[] }) {
+export function ExceptionQueueClient({ initialData, pageCount }: { initialData: ExceptionRow[], pageCount: number }) {
   const [data] = useState(initialData);
   const [globalFilter, setGlobalFilter] = useState("");
 

@@ -20,7 +20,7 @@ export default async function ComplianceOverviewPage() {
     const [{ value: audits }] = await db.select({ value: count() }).from(auditEvents);
     totalAuditEvents = audits;
 
-    recentEvents = await db.select().from(auditEvents).orderBy(desc(auditEvents.timestamp)).limit(3);
+    recentEvents = await db.select().from(auditEvents).orderBy(desc(auditEvents.ts)).limit(3);
   } catch(e) {
     console.error("Failed to fetch compliance data", e);
   }
@@ -46,10 +46,10 @@ export default async function ComplianceOverviewPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 shrink-0">
         <StatCard title="Evidence Packages" value="0" />
-        <StatCard title="Open Exceptions" value={openExceptions.toString()} trend={openExceptions > 0 ? "warning" : "none"} />
+        <StatCard title="Open Exceptions" value={openExceptions.toString()} />
         <StatCard title="Audit Events (30d)" value={totalAuditEvents.toLocaleString()} />
         <StatCard title="Reports Generated" value="0" />
-        <StatCard title="Periods Ready" value="2" trend="success" />
+        <StatCard title="Periods Ready" value="2" />
       </div>
 
       <div className="flex-1 flex flex-col lg:flex-row gap-6 min-h-[400px]">
