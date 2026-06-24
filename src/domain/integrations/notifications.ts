@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, prefer-const, no-restricted-imports */
 import { db, withTenant } from '@/infrastructure/db/client';
 import { notificationEvents } from '@/infrastructure/db/schema/integrations';
-import { auditEvents } from '@/infrastructure/db/schema/audit';
+import { auditOutbox } from '@/infrastructure/db/schema/audit';
 import { eq } from 'drizzle-orm';
 import { NotificationChannel } from './types';
 
@@ -60,13 +60,14 @@ export class NotificationManager {
           .set({ status: 'SENT', sentAt: new Date() })
           .where(eq(notificationEvents.id, event.id));
           
-        await tx.insert(auditEvents).values({
+        await tx.insert(auditOutbox).values({
           orgId,
-          userId: 'system',
+          actorId: 'system',
+          actorType: 'SYSTEM',
           eventType: 'NOTIFICATION_SENT',
           resourceType: 'NOTIFICATION_EVENT',
           resourceId: event.id,
-          details: { channel, recipient }
+          afterState: { channel, recipient }
         });
           
       } catch (error) {

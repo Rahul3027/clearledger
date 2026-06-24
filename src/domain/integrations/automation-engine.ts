@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, prefer-const, no-restricted-imports */
 import { db, withTenant } from '@/infrastructure/db/client';
 import { automationRules } from '@/infrastructure/db/schema/integrations';
-import { auditEvents } from '@/infrastructure/db/schema/audit';
+import { auditOutbox } from '@/infrastructure/db/schema/audit';
 import { exceptionCases } from '@/infrastructure/db/schema/workflow';
 import { eq, and } from 'drizzle-orm';
 import { NotificationManager } from './notifications';
@@ -85,13 +85,14 @@ export class AutomationEngine {
           console.warn(`[AutomationEngine] Unknown action type: ${rule.actionType}`);
       }
 
-      await tx.insert(auditEvents).values({
+      await tx.insert(auditOutbox).values({
         orgId,
-        userId: 'system',
+        actorId: 'system',
+        actorType: 'SYSTEM',
         eventType: 'AUTOMATION_RULE_EXECUTED',
         resourceType: 'AUTOMATION_RULE',
         resourceId: rule.id,
-        details: { actionType: rule.actionType, eventType: rule.eventType }
+        afterState: { actionType: rule.actionType, eventType: rule.eventType }
       });
       
     } catch (error) {

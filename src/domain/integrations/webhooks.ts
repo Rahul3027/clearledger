@@ -2,7 +2,7 @@
 import crypto from 'crypto';
 import { db, withTenant } from '@/infrastructure/db/client';
 import { webhookEvents } from '@/infrastructure/db/schema/integrations';
-import { auditEvents } from '@/infrastructure/db/schema/audit';
+import { auditOutbox } from '@/infrastructure/db/schema/audit';
 import { eq, and } from 'drizzle-orm';
 
 export class WebhookManager {
@@ -74,13 +74,14 @@ export class WebhookManager {
 
       // In a real system, we'd trigger an Inngest/Trigger.dev job here 
       // For MVP, we synchronously mark it processed and log the event.
-      await tx.insert(auditEvents).values({
+      await tx.insert(auditOutbox).values({
         orgId,
-        userId: 'system',
+        actorId: 'system',
+        actorType: 'SYSTEM',
         eventType: 'WEBHOOK_PROCESSED',
         resourceType: 'WEBHOOK_EVENT',
         resourceId: newEvent.id,
-        details: { provider, externalEventId }
+        afterState: { provider, externalEventId }
       });
 
 

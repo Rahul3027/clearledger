@@ -29,7 +29,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     const extension = file.name.split('.').pop();
     const immutablePath = `attachments/${params.id}/${randomUUID()}.${extension}`;
     
-    await storage.uploadFile(orgId, immutablePath, buffer);
+    await storage.put(`${orgId}/${immutablePath}`, buffer, file.type || "application/octet-stream");
 
     // 2. Database Record
     return await withTenant(orgId, async (tx) => {

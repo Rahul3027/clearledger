@@ -49,11 +49,12 @@ export class EvidencePackager {
     }
 
     // 2. Generate PDF using React-PDF
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const pdfStream = await renderToStream(
       React.createElement(SummaryReportDocument, {
         orgId, periodKey, generatedAt: new Date().toISOString(),
         totalTransactions: 1000, manualOverrideCount: 50, matchRate: 98.5
-      })
+      }) as any
     );
     archive.append(pdfStream as unknown as NodeJS.ReadableStream, { name: 'summary_report.pdf' });
 
