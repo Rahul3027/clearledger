@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Play } from "lucide-react";
 import { RunsTableClient } from "@/components/reconciliation/runs-table-client";
 import { StatCard } from "@/components/ui/stat-card";
-import { db } from "@/infrastructure/db/client";
+import { getAuthenticatedTenant } from "@/lib/auth/get-authenticated-tenant";
+import { withTenant } from "@/infrastructure/db/client";
 import { reconciliationRuns } from "@/infrastructure/db/schema";
 import { count, desc } from "drizzle-orm";
 
@@ -13,6 +14,7 @@ export default async function ReconciliationPage({
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
+  const { orgId } = await getAuthenticatedTenant();
   const page = Number(searchParams.page) || 1;
   const pageSize = Number(searchParams.pageSize) || 10;
   
@@ -21,15 +23,17 @@ export default async function ReconciliationPage({
   let pageCount = 0;
 
   try {
-    const [{ value }] = await db.select({ value: count() }).from(reconciliationRuns);
-    totalCount = value;
-    pageCount = Math.ceil(totalCount / pageSize);
+    await withTenant(orgId, async (tx) => {
+      const [{ value }] = await tx.select({ value: count() }).from(reconciliationRuns);
+      totalCount = value;
+      pageCount = Math.ceil(totalCount / pageSize);
 
-    runs = await db.select()
-      .from(reconciliationRuns)
-      .orderBy(desc(reconciliationRuns.startedAt))
-      .limit(pageSize)
-      .offset((page - 1) * pageSize);
+      runs = await tx.select()
+        .from(reconciliationRuns)
+        .orderBy(desc(reconciliationRuns.startedAt))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize);
+    });
   } catch(e) {
     console.error("Failed to fetch reconciliation runs", e);
   }

@@ -5,31 +5,35 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { ConnectorDetailClient, SyncHistoryRow, WebhookEventRow } from "@/components/connectors/connector-detail-client";
 import { RefreshCw, PowerOff, Key, Bell } from "lucide-react";
-import { db } from "@/infrastructure/db/client";
+import { getAuthenticatedTenant } from "@/lib/auth/get-authenticated-tenant";
+import { withTenant } from "@/infrastructure/db/client";
 import { connectors, extractionJobs } from "@/infrastructure/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 
 export default async function ConnectorDetailPage({ params }: { params: { id: string } }) {
+  const { orgId } = await getAuthenticatedTenant();
   const id = params.id;
 
   let connector;
   let mockSyncs: SyncHistoryRow[] = [];
   
   try {
-    const res = await db.select().from(connectors).where(eq(connectors.id, id));
-    connector = res[0];
+    await withTenant(orgId, async (tx) => {
+      const res = await tx.select().from(connectors).where(and(eq(connectors.id, id), eq(connectors.orgId, orgId)));
+      connector = res[0];
 
-    if (connector) {
-      const jobs = await db.select().from(extractionJobs).where(eq(extractionJobs.connectorId, id)).orderBy(desc(extractionJobs.createdAt));
-      mockSyncs = jobs.map(j => ({
-        id: j.id.substring(0, 8),
-        startedAt: j.startedAt?.toISOString() || "Unknown",
-        completedAt: j.completedAt?.toISOString() || "Unknown",
-        status: j.status === "COMPLETED" ? "Success" : "Failed",
-        records: j.rowsExtracted || 0,
-        duration: "1m 30s"
-      }));
-    }
+      if (connector) {
+        const jobs = await tx.select().from(extractionJobs).where(eq(extractionJobs.connectorId, id)).orderBy(desc(extractionJobs.createdAt));
+        mockSyncs = jobs.map(j => ({
+          id: j.id.substring(0, 8),
+          startedAt: j.startedAt?.toISOString() || "Unknown",
+          completedAt: j.completedAt?.toISOString() || "Unknown",
+          status: j.status === "COMPLETED" ? "Success" : "Failed",
+          records: j.rowsExtracted || 0,
+          duration: "1m 30s"
+        }));
+      }
+    });
   } catch(e) {
     console.error("Failed to fetch connector", e);
   }

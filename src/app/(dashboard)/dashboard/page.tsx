@@ -6,12 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Download, Filter } from "lucide-react";
 import { ReconciliationTableClient, ReconRow } from "@/components/dashboard/reconciliation-table-client";
 
-import { db } from "@/infrastructure/db/client";
+import { getAuthenticatedTenant } from "@/lib/auth/get-authenticated-tenant";
+import { withTenant } from "@/infrastructure/db/client";
 import { reconciliationRuns, reconciliationResults, exceptionCases, auditEvents } from "@/infrastructure/db/schema";
 import { count, eq, desc } from "drizzle-orm";
 
 export default async function DashboardOverviewPage() {
-  const orgId = "00000000-0000-0000-0000-000000000001"; // In real app, from auth session
+  const { orgId } = await getAuthenticatedTenant();
   
   let openExceptionsCount = 0;
   let totalReconCount = 0;
@@ -19,14 +20,16 @@ export default async function DashboardOverviewPage() {
   let recentAuditEvents: any[] = [];
 
   try {
-    const [{ value: exceptionCount }] = await db.select({ value: count() }).from(exceptionCases).where(eq(exceptionCases.status, "OPEN"));
-    openExceptionsCount = exceptionCount;
+    await withTenant(orgId, async (tx) => {
+      const [{ value: exceptionCount }] = await tx.select({ value: count() }).from(exceptionCases).where(eq(exceptionCases.status, "OPEN"));
+      openExceptionsCount = exceptionCount;
 
-    const [{ value: reconCount }] = await db.select({ value: count() }).from(reconciliationRuns);
-    totalReconCount = reconCount;
+      const [{ value: reconCount }] = await tx.select({ value: count() }).from(reconciliationRuns);
+      totalReconCount = reconCount;
 
-    recentExceptions = await db.select().from(exceptionCases).orderBy(desc(exceptionCases.createdAt)).limit(3);
-    recentAuditEvents = await db.select().from(auditEvents).orderBy(desc(auditEvents.ts)).limit(3);
+      recentExceptions = await tx.select().from(exceptionCases).orderBy(desc(exceptionCases.createdAt)).limit(3);
+      recentAuditEvents = await tx.select().from(auditEvents).orderBy(desc(auditEvents.ts)).limit(3);
+    });
   } catch (e) {
     console.error("Database connection failed, using empty states.", e);
   }

@@ -1,18 +1,31 @@
 "use server";
 
-import { db } from "@/infrastructure/db/client";
-import { extractionJobs, auditOutbox } from "@/infrastructure/db/schema";
+import { getAuthenticatedTenant } from "@/lib/auth/get-authenticated-tenant";
+import { withTenant } from "@/infrastructure/db/client";
+import { connectors, extractionJobs, auditOutbox } from "@/infrastructure/db/schema";
+import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 export async function uploadFileAction(formData: FormData) {
-  const orgId = "00000000-0000-0000-0000-000000000001";
-  const entityId = "00000000-0000-0000-0000-000000000001";
-  const connectorId = "00000000-0000-0000-0000-000000000001"; // Default manual upload connector
+  const { user, orgId } = await getAuthenticatedTenant();
   const file = formData.get("file") as File;
   
   if (!file) return;
 
-  await db.transaction(async (tx) => {
+  await withTenant(orgId, async (tx) => {
+    // Dynamically retrieve first connector to fetch connectorId and entityId
+    const [connector] = await tx.select()
+      .from(connectors)
+      .where(eq(connectors.orgId, orgId))
+      .limit(1);
+
+    if (!connector) {
+      throw new Error("No connector found for organization. Ingestion requires a connector configuration.");
+    }
+
+    const connectorId = connector.id;
+    const entityId = connector.entityId;
+
     // 1. Create extraction job
     await tx.insert(extractionJobs).values({
       orgId,
@@ -30,7 +43,7 @@ export async function uploadFileAction(formData: FormData) {
     // 2. Audit
     await tx.insert(auditOutbox).values({
       orgId,
-      actorId: "user",
+      actorId: user.id,
       actorType: "USER",
       eventType: "FILE_UPLOAD",
       beforeState: { fileName: file.name }
@@ -39,3 +52,4 @@ export async function uploadFileAction(formData: FormData) {
 
   revalidatePath("/ingestion");
 }
+

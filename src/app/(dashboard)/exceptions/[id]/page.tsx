@@ -6,19 +6,23 @@ import { CaseActions } from "@/components/exceptions/case-actions";
 import { ActivityFeed } from "@/components/exceptions/activity-feed";
 import { AlertCircle, FileText, Download, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { db } from "@/infrastructure/db/client";
+import { getAuthenticatedTenant } from "@/lib/auth/get-authenticated-tenant";
+import { withTenant } from "@/infrastructure/db/client";
 import { exceptionCases } from "@/infrastructure/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { notFound } from "next/navigation";
 
 export default async function ExceptionDetailPage({ params }: { params: { id: string } }) {
+  const { orgId } = await getAuthenticatedTenant();
   const id = params.id;
   
   // Real DB fetch
   let exceptionCase;
   try {
-    const results = await db.select().from(exceptionCases).where(eq(exceptionCases.id, id));
-    exceptionCase = results[0];
+    await withTenant(orgId, async (tx) => {
+      const results = await tx.select().from(exceptionCases).where(and(eq(exceptionCases.id, id), eq(exceptionCases.orgId, orgId)));
+      exceptionCase = results[0];
+    });
   } catch(e) {
     console.error("DB error", e);
   }

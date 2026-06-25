@@ -1,16 +1,28 @@
 "use server";
 
-import { db } from "@/infrastructure/db/client";
+import { getAuthenticatedTenant } from "@/lib/auth/get-authenticated-tenant";
+import { withTenant } from "@/infrastructure/db/client";
 import { connectors, extractionJobs, auditOutbox } from "@/infrastructure/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 export async function triggerSyncAction(formData: FormData) {
-  const orgId = "00000000-0000-0000-0000-000000000001";
-  const entityId = "00000000-0000-0000-0000-000000000001";
+  const { user, orgId } = await getAuthenticatedTenant();
   const connectorId = formData.get("connectorId") as string;
 
-  await db.transaction(async (tx) => {
+  await withTenant(orgId, async (tx) => {
+    // Retrieve the connector to verify tenancy and get entityId
+    const [connector] = await tx.select()
+      .from(connectors)
+      .where(and(eq(connectors.id, connectorId), eq(connectors.orgId, orgId)))
+      .limit(1);
+      
+    if (!connector) {
+      throw new Error("Connector not found or unauthorized");
+    }
+    
+    const entityId = connector.entityId;
+
     await tx.insert(extractionJobs).values({
       orgId,
       entityId,
@@ -25,8 +37,8 @@ export async function triggerSyncAction(formData: FormData) {
 
     await tx.insert(auditOutbox).values({
       orgId,
-      actorId: "system",
-      actorType: "SYSTEM",
+      actorId: user.id,
+      actorType: "USER",
       eventType: "MANUAL_SYNC_TRIGGERED",
       beforeState: { connectorId }
     });
@@ -37,18 +49,28 @@ export async function triggerSyncAction(formData: FormData) {
 }
 
 export async function disableConnectorAction(formData: FormData) {
-  const orgId = "00000000-0000-0000-0000-000000000001";
+  const { user, orgId } = await getAuthenticatedTenant();
   const connectorId = formData.get("connectorId") as string;
 
-  await db.transaction(async (tx) => {
+  await withTenant(orgId, async (tx) => {
+    // Verify connector ownership
+    const [connector] = await tx.select()
+      .from(connectors)
+      .where(and(eq(connectors.id, connectorId), eq(connectors.orgId, orgId)))
+      .limit(1);
+
+    if (!connector) {
+      throw new Error("Connector not found or unauthorized");
+    }
+
     await tx.update(connectors)
       .set({ status: "SUSPENDED" })
       .where(eq(connectors.id, connectorId));
 
     await tx.insert(auditOutbox).values({
       orgId,
-      actorId: "system",
-      actorType: "SYSTEM",
+      actorId: user.id,
+      actorType: "USER",
       eventType: "CONNECTOR_DISABLED",
       beforeState: { connectorId }
     });
@@ -57,3 +79,4 @@ export async function disableConnectorAction(formData: FormData) {
   revalidatePath("/connectors");
   revalidatePath(`/connectors/${connectorId}`);
 }
+

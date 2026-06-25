@@ -2,33 +2,60 @@
 import { NextRequest, NextResponse } from "next/server";
 import { WebhookManager } from "@/domain/integrations/webhooks";
 import { withTenant, db } from "@/infrastructure/db/client";
+import { connectors } from "@/infrastructure/db/schema/ingestion";
 import { auditOutbox } from "@/infrastructure/db/schema/audit";
+import { eq } from "drizzle-orm";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: { provider: string } }
 ) {
-  // Note: Public webhooks usually don't have x-org-id injected by middleware
-  // In a real system, tenant is inferred from the path, query param, or payload.
-  // For MVP, we require the provider to pass x-org-id or a dedicated webhook tenant key.
-  const orgId = request.headers.get("x-org-id");
-  if (!orgId) return NextResponse.json({ error: "Missing webhook tenant context" }, { status: 401 });
+  // 1. Fail closed if WEBHOOK_SECRET is missing
+  const secret = process.env.WEBHOOK_SECRET;
+  if (!secret) {
+    console.error("[Webhook] WEBHOOK_SECRET is missing in environment.");
+    return NextResponse.json({ error: "Webhook service is unconfigured" }, { status: 500 });
+  }
 
+  // 2. Validate webhook signature first
   const signature = request.headers.get("x-webhook-signature");
-  if (!signature) return NextResponse.json({ error: "Missing signature" }, { status: 401 });
+  if (!signature) {
+    return NextResponse.json({ error: "Missing signature" }, { status: 401 });
+  }
 
   const payloadString = await request.text();
-  const payload = JSON.parse(payloadString);
-  const externalEventId = payload.id || request.headers.get("x-webhook-id");
+  let payload: any;
+  try {
+    payload = JSON.parse(payloadString);
+  } catch (parseError) {
+    return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
+  }
 
+  const isValid = WebhookManager.validateSignature(payloadString, signature, secret);
+  if (!isValid) {
+    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+  }
+
+  const externalEventId = payload.id || request.headers.get("x-webhook-id");
   if (!externalEventId) {
     return NextResponse.json({ error: "Missing external event ID for idempotency" }, { status: 400 });
   }
 
   try {
-    // Secret would normally be looked up per provider/tenant
-    const dummySecret = process.env.WEBHOOK_SECRET || "mvp-secret-key";
-    
+    // 3. Resolve Connector and Tenant from configuration (do NOT trust x-org-id header)
+    const matchedConnectors = await db.select()
+      .from(connectors)
+      .where(eq(connectors.slug, params.provider))
+      .limit(1);
+
+    if (matchedConnectors.length === 0) {
+      return NextResponse.json({ error: "No connector configured for this provider" }, { status: 404 });
+    }
+
+    const dbConnector = matchedConnectors[0];
+    const orgId = dbConnector.orgId;
+
+    // 4. Process event under the resolved tenant context
     const eventId = await WebhookManager.processIncoming(
       orgId, 
       params.provider, 
@@ -36,7 +63,7 @@ export async function POST(
       payload, 
       payloadString, 
       signature, 
-      dummySecret
+      secret
     );
 
     await withTenant(orgId, async (tx) => {
@@ -53,6 +80,7 @@ export async function POST(
 
     return NextResponse.json({ success: true, eventId });
   } catch (error: any) {
+    console.error("Webhook processing failed:", error);
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 }

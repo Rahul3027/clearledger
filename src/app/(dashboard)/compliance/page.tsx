@@ -4,23 +4,27 @@ import { StatCard } from "@/components/ui/stat-card";
 import { AlertCircle, FileText, CheckCircle2, AlertTriangle, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { db } from "@/infrastructure/db/client";
+import { getAuthenticatedTenant } from "@/lib/auth/get-authenticated-tenant";
+import { withTenant } from "@/infrastructure/db/client";
 import { auditEvents, exceptionCases } from "@/infrastructure/db/schema";
 import { count, eq, desc } from "drizzle-orm";
 
 export default async function ComplianceOverviewPage() {
+  const { orgId } = await getAuthenticatedTenant();
   let openExceptions = 0;
   let totalAuditEvents = 0;
   let recentEvents: any[] = [];
   
   try {
-    const [{ value: exceptions }] = await db.select({ value: count() }).from(exceptionCases).where(eq(exceptionCases.status, "OPEN"));
-    openExceptions = exceptions;
+    await withTenant(orgId, async (tx) => {
+      const [{ value: exceptions }] = await tx.select({ value: count() }).from(exceptionCases).where(eq(exceptionCases.status, "OPEN"));
+      openExceptions = exceptions;
 
-    const [{ value: audits }] = await db.select({ value: count() }).from(auditEvents);
-    totalAuditEvents = audits;
+      const [{ value: audits }] = await tx.select({ value: count() }).from(auditEvents);
+      totalAuditEvents = audits;
 
-    recentEvents = await db.select().from(auditEvents).orderBy(desc(auditEvents.ts)).limit(3);
+      recentEvents = await tx.select().from(auditEvents).orderBy(desc(auditEvents.ts)).limit(3);
+    });
   } catch(e) {
     console.error("Failed to fetch compliance data", e);
   }

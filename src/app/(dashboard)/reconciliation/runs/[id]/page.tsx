@@ -5,11 +5,13 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { RunDetailClient, MatchResultRow, UnmatchedRow } from "@/components/reconciliation/run-detail-client";
 import { ActivityFeed } from "@/components/exceptions/activity-feed"; 
 import { Activity, Clock } from "lucide-react";
-import { db } from "@/infrastructure/db/client";
+import { getAuthenticatedTenant } from "@/lib/auth/get-authenticated-tenant";
+import { withTenant } from "@/infrastructure/db/client";
 import { reconciliationResults, reconciliationRuns } from "@/infrastructure/db/schema";
-import { eq, inArray } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 export default async function RunDetailPage({ params }: { params: { id: string } }) {
+  const { orgId } = await getAuthenticatedTenant();
   const id = params.id;
 
   let runDetails;
@@ -17,33 +19,35 @@ export default async function RunDetailPage({ params }: { params: { id: string }
   let unmatched: UnmatchedRow[] = [];
 
   try {
-    const runs = await db.select().from(reconciliationRuns).where(eq(reconciliationRuns.id, id));
-    runDetails = runs[0];
+    await withTenant(orgId, async (tx) => {
+      const runs = await tx.select().from(reconciliationRuns).where(and(eq(reconciliationRuns.id, id), eq(reconciliationRuns.orgId, orgId)));
+      runDetails = runs[0];
 
-    if (runDetails) {
-      const results = await db.select().from(reconciliationResults).where(eq(reconciliationResults.runId, id));
-      
-      const matched = results.filter(r => r.matchStatus !== "UNMATCHED");
-      const unmatchedResults = results.filter(r => r.matchStatus === "UNMATCHED");
+      if (runDetails) {
+        const results = await tx.select().from(reconciliationResults).where(eq(reconciliationResults.runId, id));
+        
+        const matched = results.filter(r => r.matchStatus !== "UNMATCHED");
+        const unmatchedResults = results.filter(r => r.matchStatus === "UNMATCHED");
 
-      matchResults = matched.map(m => ({
-        id: m.id,
-        sourceDoc: m.sourcePlatformId.substring(0, 8),
-        counterparty: "Unknown",
-        amount: "—",
-        matchType: (m.strategyUsed === "exact" ? "Exact" : "Manual") as "Exact" | "Tolerance" | "Manual" | "Unmatched",
-        confidence: Number(m.confidenceScore) || 1.0,
-        status: (m.matchStatus === "MATCHED" ? "Matched" : m.matchStatus === "UNMATCHED" ? "Unmatched" : "Partial") as "Matched" | "Partial" | "Unmatched"
-      }));
+        matchResults = matched.map(m => ({
+          id: m.id,
+          sourceDoc: m.sourcePlatformId.substring(0, 8),
+          counterparty: "Unknown",
+          amount: "—",
+          matchType: (m.strategyUsed === "exact" ? "Exact" : "Manual") as "Exact" | "Tolerance" | "Manual" | "Unmatched",
+          confidence: Number(m.confidenceScore) || 1.0,
+          status: (m.matchStatus === "MATCHED" ? "Matched" : m.matchStatus === "UNMATCHED" ? "Unmatched" : "Partial") as "Matched" | "Partial" | "Unmatched"
+        }));
 
-      unmatched = unmatchedResults.map(u => ({
-        id: u.id,
-        amount: "—",
-        date: "Unknown",
-        counterparty: "Unknown",
-        suggestedMatch: null
-      }));
-    }
+        unmatched = unmatchedResults.map(u => ({
+          id: u.id,
+          amount: "—",
+          date: "Unknown",
+          counterparty: "Unknown",
+          suggestedMatch: null
+        }));
+      }
+    });
   } catch(e) {
     console.error("Failed to fetch run details", e);
   }

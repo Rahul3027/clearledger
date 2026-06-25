@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, prefer-const, @typescript-eslint/no-empty-object-type, react/no-unescaped-entities, jsx-a11y/role-has-required-aria-props, react/jsx-no-undef, no-restricted-imports */
 import { PageHeader } from "@/components/ui/page-header";
 import { IngestionClient } from "@/components/ingestion/ingestion-client";
-import { db } from "@/infrastructure/db/client";
+import { getAuthenticatedTenant } from "@/lib/auth/get-authenticated-tenant";
+import { withTenant } from "@/infrastructure/db/client";
 import { extractionJobs } from "@/infrastructure/db/schema";
 import { count, desc } from "drizzle-orm";
 
@@ -10,6 +11,7 @@ export default async function IngestionPage({
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
+  const { orgId } = await getAuthenticatedTenant();
   const page = Number(searchParams.page) || 1;
   const pageSize = Number(searchParams.pageSize) || 10;
   
@@ -18,15 +20,17 @@ export default async function IngestionPage({
   let pageCount = 0;
 
   try {
-    const [{ value }] = await db.select({ value: count() }).from(extractionJobs);
-    totalCount = value;
-    pageCount = Math.ceil(totalCount / pageSize);
+    await withTenant(orgId, async (tx) => {
+      const [{ value }] = await tx.select({ value: count() }).from(extractionJobs);
+      totalCount = value;
+      pageCount = Math.ceil(totalCount / pageSize);
 
-    jobs = await db.select()
-      .from(extractionJobs)
-      .orderBy(desc(extractionJobs.createdAt))
-      .limit(pageSize)
-      .offset((page - 1) * pageSize);
+      jobs = await tx.select()
+        .from(extractionJobs)
+        .orderBy(desc(extractionJobs.createdAt))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize);
+    });
   } catch(e) {
     console.error("Failed to fetch extraction jobs", e);
   }

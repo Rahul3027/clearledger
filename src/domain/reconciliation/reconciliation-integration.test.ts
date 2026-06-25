@@ -4,59 +4,62 @@ import { POST as RunPOST } from '../../app/api/reconciliation/run/route';
 import { POST as ManualPOST } from '../../app/api/reconciliation/manual-match/route';
 
 vi.mock('@/infrastructure/db/client', () => {
-  
-  return {
-    db: {
-      transaction: vi.fn(async (cb) => {
-        const tx = {
-          execute: vi.fn(),
-          query: {
-            canonicalTransactions: {
-              findMany: vi.fn().mockResolvedValue([
-                {
-                  platformId: 'source-1',
-                  docNumber: 'INV-123',
-                  currencyCode: 'USD',
-                  netAmount: 100,
-                  taxAmount: 20,
-                  grossAmount: 120,
-                  counterpartyTaxId: 'TAX1',
-                  docDate: '2026-06-20',
-                  dqAction: 'ADMITTED'
-                }
-              ])
-            },
-            reconciliationResults: {
-              findFirst: vi.fn().mockResolvedValue({
-                id: 'res-1',
-                orgId: 'org-1',
-                matchStatus: 'AMBIGUOUS',
-                evidenceTrail: []
-              })
-            }
-          },
-          insert: vi.fn().mockImplementation((schema) => {
-            return {
-              values: (data: unknown) => {
-                (global as unknown as { mockDbInserts: unknown[] }).mockDbInserts.push({ schema, data });
-                const returnData = Array.isArray(data) ? data.map(d => ({ ...d, id: 'mock-id' })) : [{ ...data, id: 'mock-id' }];
-                return {
-                  onConflictDoUpdate: vi.fn().mockResolvedValue(returnData),
-                  returning: vi.fn().mockResolvedValue(returnData)
-                };
-              }
-            };
-          }),
-          update: vi.fn().mockReturnValue({
-            set: (data: unknown) => {
-              (global as unknown as { mockDbUpdates: unknown[] }).mockDbUpdates.push(data);
-              return {
-                where: vi.fn().mockResolvedValue([])
-              };
-            }
-          })
+  const mockTx = {
+    execute: vi.fn(),
+    query: {
+      canonicalTransactions: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            platformId: 'source-1',
+            docNumber: 'INV-123',
+            currencyCode: 'USD',
+            netAmount: 100,
+            taxAmount: 20,
+            grossAmount: 120,
+            counterpartyTaxId: 'TAX1',
+            docDate: '2026-06-20',
+            dqAction: 'ADMITTED'
+          }
+        ])
+      },
+      reconciliationResults: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: 'res-1',
+          orgId: 'org-1',
+          matchStatus: 'AMBIGUOUS',
+          evidenceTrail: []
+        })
+      }
+    },
+    insert: vi.fn().mockImplementation((schema: any) => {
+      return {
+        values: (data: any) => {
+          (global as any).mockDbInserts.push({ schema, data });
+          const returnData = Array.isArray(data) ? data.map((d: any) => ({ ...d, id: 'mock-id' })) : [{ ...data, id: 'mock-id' }];
+          return {
+            onConflictDoUpdate: vi.fn().mockResolvedValue(returnData),
+            returning: vi.fn().mockResolvedValue(returnData)
+          };
+        }
+      };
+    }),
+    update: vi.fn().mockReturnValue({
+      set: (data: any) => {
+        (global as any).mockDbUpdates.push(data);
+        return {
+          where: vi.fn().mockResolvedValue([])
         };
-        return cb(tx);
+      }
+    })
+  };
+
+  return {
+    withTenant: vi.fn(async (orgId: string, cb: any) => {
+      return cb(mockTx);
+    }),
+    db: {
+      transaction: vi.fn(async (cb: any) => {
+        return cb(mockTx);
       })
     }
   };
@@ -79,8 +82,8 @@ describe('Phase 3 Integration & API Verification', () => {
     const res = await RunPOST(req);
     expect(res.status).toBe(200);
 
-    const inserts = (global as unknown as { mockDbInserts: Array<{ schema: { [key: symbol]: string }, data: Record<string, unknown> }> }).mockDbInserts;
-    const auditInserts = inserts.filter((i) => i.schema[Symbol.for('drizzle:Name')] === 'audit_outbox');
+    const inserts = (global as any).mockDbInserts || [];
+    const auditInserts = inserts.filter((i: any) => i.schema && i.schema[Symbol.for('drizzle:Name')] === 'audit_outbox');
     
     // Should have STARTED and COMPLETED
     expect(auditInserts.length).toBe(2);
@@ -96,9 +99,9 @@ describe('Phase 3 Integration & API Verification', () => {
     });
 
     await RunPOST(req);
-    const inserts = (global as unknown as { mockDbInserts: Array<{ schema: { [key: symbol]: string }, data: any[] }> }).mockDbInserts;
+    const inserts = (global as any).mockDbInserts || [];
     
-    const resultsInsert = inserts.find((i) => i.schema[Symbol.for('drizzle:Name')] === 'reconciliation_results');
+    const resultsInsert = inserts.find((i: any) => i.schema && i.schema[Symbol.for('drizzle:Name')] === 'reconciliation_results');
     
     expect(resultsInsert).toBeDefined();
     // Since we mocked DB to return 1 source and 1 target with identical properties, they should EXACT match.
@@ -117,8 +120,8 @@ describe('Phase 3 Integration & API Verification', () => {
     const res = await ManualPOST(req);
     expect(res.status).toBe(200);
 
-    const updates = (global as unknown as { mockDbUpdates: Record<string, unknown>[] }).mockDbUpdates;
-    const inserts = (global as unknown as { mockDbInserts: Array<{ schema: { [key: symbol]: string }, data: Record<string, unknown> }> }).mockDbInserts;
+    const updates = (global as any).mockDbUpdates || [];
+    const inserts = (global as any).mockDbInserts || [];
 
     // Check that we set status to MANUAL_MATCH
     expect(updates.length).toBe(1);
@@ -127,7 +130,7 @@ describe('Phase 3 Integration & API Verification', () => {
     expect(updates[0].resolvedBy).toBe('user-123');
 
     // Check that an audit event was emitted
-    const auditInsert = inserts.find((i) => i.schema[Symbol.for('drizzle:Name')] === 'audit_outbox');
+    const auditInsert = inserts.find((i: any) => i.schema && i.schema[Symbol.for('drizzle:Name')] === 'audit_outbox');
     expect(auditInsert).toBeDefined();
     expect(auditInsert.data.eventType).toBe('RECONCILIATION_MANUAL_MATCH');
   });

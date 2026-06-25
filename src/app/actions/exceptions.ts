@@ -1,10 +1,10 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, prefer-const, @typescript-eslint/no-empty-object-type, react/no-unescaped-entities, jsx-a11y/role-has-required-aria-props, react/jsx-no-undef, no-restricted-imports */
 "use server";
 
 import { z } from "zod";
-import { db } from "@/infrastructure/db/client";
+import { getAuthenticatedTenant } from "@/lib/auth/get-authenticated-tenant";
+import { withTenant } from "@/infrastructure/db/client";
 import { exceptionCases, exceptionHistory } from "@/infrastructure/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 const assignSchema = z.object({
@@ -13,16 +13,24 @@ const assignSchema = z.object({
 });
 
 export async function assignExceptionAction(formData: FormData) {
-  // In a real app, we'd get the orgId and userId from the auth session
-  const orgId = "00000000-0000-0000-0000-000000000001";
-  const actorId = "system";
+  const { user, orgId } = await getAuthenticatedTenant();
 
   const parsed = assignSchema.parse({
     caseId: formData.get("caseId"),
     userId: formData.get("userId"),
   });
 
-  await db.transaction(async (tx) => {
+  await withTenant(orgId, async (tx) => {
+    // Verify exception case ownership
+    const [exceptionCase] = await tx.select()
+      .from(exceptionCases)
+      .where(and(eq(exceptionCases.id, parsed.caseId), eq(exceptionCases.orgId, orgId)))
+      .limit(1);
+
+    if (!exceptionCase) {
+      throw new Error("Exception case not found or unauthorized");
+    }
+
     // 1. Update case
     await tx.update(exceptionCases)
       .set({ 
@@ -36,7 +44,7 @@ export async function assignExceptionAction(formData: FormData) {
     await tx.insert(exceptionHistory).values({
       orgId,
       caseId: parsed.caseId,
-      actorId,
+      actorId: user.id,
       actionType: "ASSIGNMENT",
       newState: "IN_REVIEW"
     });
@@ -46,11 +54,20 @@ export async function assignExceptionAction(formData: FormData) {
 }
 
 export async function resolveExceptionAction(formData: FormData) {
-  const orgId = "00000000-0000-0000-0000-000000000001";
+  const { user, orgId } = await getAuthenticatedTenant();
   const caseId = formData.get("caseId") as string;
-  const resolutionNote = formData.get("resolutionNote") as string;
 
-  await db.transaction(async (tx) => {
+  await withTenant(orgId, async (tx) => {
+    // Verify exception case ownership
+    const [exceptionCase] = await tx.select()
+      .from(exceptionCases)
+      .where(and(eq(exceptionCases.id, caseId), eq(exceptionCases.orgId, orgId)))
+      .limit(1);
+
+    if (!exceptionCase) {
+      throw new Error("Exception case not found or unauthorized");
+    }
+
     await tx.update(exceptionCases)
       .set({ 
         status: "RESOLVED",
@@ -61,7 +78,7 @@ export async function resolveExceptionAction(formData: FormData) {
     await tx.insert(exceptionHistory).values({
       orgId,
       caseId,
-      actorId: "system",
+      actorId: user.id,
       actionType: "STATUS_CHANGE",
       newState: "RESOLVED"
     });
@@ -70,3 +87,4 @@ export async function resolveExceptionAction(formData: FormData) {
   revalidatePath("/exceptions");
   revalidatePath(`/exceptions/${caseId}`);
 }
+

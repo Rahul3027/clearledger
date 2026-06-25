@@ -7,7 +7,8 @@ import { POST as AttachmentPOST } from '../../app/api/workflow/cases/[id]/attach
 
 vi.mock('@/infrastructure/storage/supabase-storage-adapter', () => ({
   getStorageAdapter: vi.fn().mockReturnValue({
-    uploadFile: vi.fn().mockResolvedValue(true)
+    uploadFile: vi.fn().mockResolvedValue(true),
+    put: vi.fn().mockResolvedValue(true)
   })
 }));
 

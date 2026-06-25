@@ -1,4 +1,4 @@
-/* eslint-disable no-restricted-imports */
+/* eslint-disable no-restricted-imports, @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import { GET as getReconRuns } from '@/app/api/reconciliation/runs/route';
@@ -20,8 +20,39 @@ describe('Phase 5.5B Tenant Isolation Remediation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (dbClient.withTenant as any).mockImplementation(async (orgId: string) => {
-      // Simulate successful execution of the inner transaction block
+    (dbClient.withTenant as any).mockImplementation(async (orgId: string, cb?: any) => {
+      if (cb) {
+        const mockTx = {
+          execute: vi.fn(),
+          select: vi.fn().mockImplementation(() => {
+            const queryBuilder: any = {
+              from: vi.fn().mockImplementation(() => queryBuilder),
+              where: vi.fn().mockImplementation(() => queryBuilder),
+              orderBy: vi.fn().mockImplementation(() => queryBuilder),
+              limit: vi.fn().mockImplementation(() => queryBuilder),
+              offset: vi.fn().mockImplementation(() => queryBuilder),
+              then: (onfulfilled: any) => Promise.resolve([]).then(onfulfilled)
+            };
+            return queryBuilder;
+          }),
+          query: {
+            canonicalTransactions: {
+              findMany: vi.fn().mockResolvedValue([])
+            }
+          },
+          insert: vi.fn().mockReturnValue({
+            values: vi.fn().mockReturnValue({
+              returning: vi.fn().mockResolvedValue([{ id: 'mock-id' }])
+            })
+          }),
+          update: vi.fn().mockReturnValue({
+            set: vi.fn().mockReturnValue({
+              where: vi.fn().mockResolvedValue([])
+            })
+          })
+        };
+        return cb(mockTx);
+      }
       return { orgId_in_tx: orgId, success: true };
     });
   });

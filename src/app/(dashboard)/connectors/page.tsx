@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { StatCard } from "@/components/ui/stat-card";
 import { ConnectorsClient } from "@/components/connectors/connectors-client";
-import { db } from "@/infrastructure/db/client";
+import { getAuthenticatedTenant } from "@/lib/auth/get-authenticated-tenant";
+import { withTenant } from "@/infrastructure/db/client";
 import { connectors } from "@/infrastructure/db/schema";
 import { count, desc } from "drizzle-orm";
 
@@ -13,6 +14,7 @@ export default async function ConnectorsPage({
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
+  const { orgId } = await getAuthenticatedTenant();
   const page = Number(searchParams.page) || 1;
   const pageSize = Number(searchParams.pageSize) || 10;
   
@@ -21,15 +23,17 @@ export default async function ConnectorsPage({
   let pageCount = 0;
 
   try {
-    const [{ value }] = await db.select({ value: count() }).from(connectors);
-    totalCount = value;
-    pageCount = Math.ceil(totalCount / pageSize);
+    await withTenant(orgId, async (tx) => {
+      const [{ value }] = await tx.select({ value: count() }).from(connectors);
+      totalCount = value;
+      pageCount = Math.ceil(totalCount / pageSize);
 
-    connectorList = await db.select()
-      .from(connectors)
-      .orderBy(desc(connectors.createdAt))
-      .limit(pageSize)
-      .offset((page - 1) * pageSize);
+      connectorList = await tx.select()
+        .from(connectors)
+        .orderBy(desc(connectors.createdAt))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize);
+    });
   } catch(e) {
     console.error("Failed to fetch connectors", e);
   }

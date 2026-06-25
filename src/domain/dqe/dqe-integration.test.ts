@@ -3,56 +3,48 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { POST as IngestionPOST } from '../../app/api/ingestion/jobs/route';
 import { POST as ReviewPOST } from '../../app/api/dqe/reviews/route';
 
-// Mock dependencies
 vi.mock('@/infrastructure/db/client', () => {
-  const insertMock = vi.fn().mockReturnThis();
-  const valuesMock = vi.fn().mockReturnThis();
-  const onConflictDoNothingMock = vi.fn().mockReturnThis();
-  const returningMock = vi.fn().mockResolvedValue([{ id: 'mock-id', platformId: 'mock-platform-id', stableIdentityKey: 'mock-stable-key' }]);
-  
+  const mockTx = {
+    execute: vi.fn(),
+    query: {
+      connectors: {
+        findFirst: vi.fn().mockResolvedValue({ id: 'connector-1', slug: 'excel-csv-v1', entityId: 'entity-1', config: {} })
+      }
+    },
+    insert: vi.fn().mockImplementation((schema) => {
+      return {
+        values: (data: any) => {
+          (global as any).mockDbInserts.push({ schema, data });
+          const returningMockDynamic = vi.fn().mockResolvedValue(
+            Array.isArray(data) ? data.map(d => ({ ...d, platformId: 'mock-plat-id', id: 'mock-id' })) : [{ ...data, platformId: 'mock-plat-id', id: 'mock-id' }]
+          );
+          return {
+            onConflictDoNothing: () => ({ returning: returningMockDynamic }),
+            returning: returningMockDynamic
+          };
+        }
+      };
+    }),
+    update: vi.fn().mockReturnValue({
+      set: vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue([])
+      })
+    })
+  };
+
   return {
+    withTenant: vi.fn(async (orgId, cb) => {
+      return cb(mockTx);
+    }),
     db: {
       transaction: vi.fn(async (cb) => {
-        // Provide a mock transaction object to the callback
-        const tx = {
-          execute: vi.fn(),
-          query: {
-            connectors: {
-              findFirst: vi.fn().mockResolvedValue({ id: 'connector-1', slug: 'excel-csv-v1', entityId: 'entity-1', config: {} })
-            }
-          },
-          insert: vi.fn().mockReturnValue({
-            values: vi.fn().mockReturnValue({
-              onConflictDoNothing: vi.fn().mockReturnValue({
-                returning: returningMock
-              }),
-              returning: returningMock
-            })
-          }),
-          update: vi.fn().mockReturnValue({
-            set: vi.fn().mockReturnValue({
-              where: vi.fn().mockResolvedValue([])
-            })
-          })
-        };
-        // Record all insert calls made within transaction
-        tx.insert.mockImplementation((schema) => {
-          return {
-            values: (data: any) => {
-              (global as any).mockDbInserts.push({ schema, data });
-              // Create a dynamic returning mock based on the data inserted
-              const returningMockDynamic = vi.fn().mockResolvedValue(
-                Array.isArray(data) ? data.map(d => ({ ...d, platformId: 'mock-plat-id', id: 'mock-id' })) : [{ ...data, platformId: 'mock-plat-id', id: 'mock-id' }]
-              );
-              return {
-                onConflictDoNothing: () => ({ returning: returningMockDynamic }),
-                returning: returningMockDynamic
-              };
-            }
-          };
-        });
-        return cb(tx);
+        return cb(mockTx);
       }),
+      select: vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue([{ id: 'connector-1', orgId: 'org-1' }])
+        })
+      })
     }
   };
 });

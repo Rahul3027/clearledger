@@ -1,20 +1,20 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, prefer-const, @typescript-eslint/no-empty-object-type, react/no-unescaped-entities, jsx-a11y/role-has-required-aria-props, react/jsx-no-undef, no-restricted-imports */
 "use server";
 
-import { db } from "@/infrastructure/db/client";
-import { reconciliationRuns, reconciliationResults, exceptionCases, exceptionHistory } from "@/infrastructure/db/schema";
+import { getAuthenticatedTenant } from "@/lib/auth/get-authenticated-tenant";
+import { withTenant } from "@/infrastructure/db/client";
+import { reconciliationResults, exceptionCases, exceptionHistory } from "@/infrastructure/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 export async function createManualMatchAction(formData: FormData) {
-  const orgId = "00000000-0000-0000-0000-000000000001";
+  const { user, orgId } = await getAuthenticatedTenant();
   const sourceTransactionId = formData.get("sourceTransactionId") as string;
   const targetTransactionId = formData.get("targetTransactionId") as string;
   const runId = formData.get("runId") as string;
   const periodKey = formData.get("periodKey") as string;
   const note = formData.get("note") as string;
 
-  await db.transaction(async (tx) => {
+  await withTenant(orgId, async (tx) => {
     // 1. Create a reconciliation result
     const [result] = await tx.insert(reconciliationResults).values({
       orgId,
@@ -25,7 +25,7 @@ export async function createManualMatchAction(formData: FormData) {
       matchStatus: "MANUAL_MATCH",
       strategyUsed: "MANUAL",
       confidenceScore: "1.00",
-      resolvedBy: "system",
+      resolvedBy: user.id,
       evidenceTrail: { note }
     }).returning();
 
@@ -40,7 +40,7 @@ export async function createManualMatchAction(formData: FormData) {
         await tx.insert(exceptionHistory).values({
           orgId,
           caseId: c.id,
-          actorId: "system",
+          actorId: user.id,
           actionType: "MANUAL_MATCH_RESOLUTION",
           newState: "RESOLVED"
         });
@@ -50,3 +50,4 @@ export async function createManualMatchAction(formData: FormData) {
 
   revalidatePath(`/reconciliation/runs/${runId}`);
 }
+

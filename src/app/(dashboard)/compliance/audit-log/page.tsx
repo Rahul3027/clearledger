@@ -3,7 +3,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import { AuditLogClient } from "@/components/compliance/audit-log-client";
-import { db } from "@/infrastructure/db/client";
+import { getAuthenticatedTenant } from "@/lib/auth/get-authenticated-tenant";
+import { withTenant } from "@/infrastructure/db/client";
 import { auditEvents } from "@/infrastructure/db/schema";
 import { count, desc } from "drizzle-orm";
 
@@ -12,6 +13,7 @@ export default async function AuditLogPage({
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
+  const { orgId } = await getAuthenticatedTenant();
   const page = Number(searchParams.page) || 1;
   const pageSize = Number(searchParams.pageSize) || 10;
   
@@ -20,15 +22,17 @@ export default async function AuditLogPage({
   let pageCount = 0;
 
   try {
-    const [{ value }] = await db.select({ value: count() }).from(auditEvents);
-    totalCount = value;
-    pageCount = Math.ceil(totalCount / pageSize);
+    await withTenant(orgId, async (tx) => {
+      const [{ value }] = await tx.select({ value: count() }).from(auditEvents);
+      totalCount = value;
+      pageCount = Math.ceil(totalCount / pageSize);
 
-    eventsList = await db.select()
-      .from(auditEvents)
-      .orderBy(desc(auditEvents.ts))
-      .limit(pageSize)
-      .offset((page - 1) * pageSize);
+      eventsList = await tx.select()
+        .from(auditEvents)
+        .orderBy(desc(auditEvents.ts))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize);
+    });
   } catch(e) {
     console.error("Failed to fetch audit events", e);
   }
