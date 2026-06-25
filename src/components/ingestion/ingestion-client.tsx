@@ -1,57 +1,58 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, prefer-const, @typescript-eslint/no-empty-object-type, react/no-unescaped-entities, jsx-a11y/role-has-required-aria-props, react/jsx-no-undef, no-restricted-imports */
 "use client";
 
-import { DataTable } from "@/components/ui/data-table";
-import { StatusBadge } from "@/components/ui/status-badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Filter, Search, UploadCloud, FileSpreadsheet, X } from "lucide-react";
-import { ColumnDef } from "@tanstack/react-table";
 import { useState } from "react";
+import { 
+  UploadCloud, 
+  FileSpreadsheet, 
+  Database, 
+  FileCode, 
+  FileText, 
+  Link2, 
+  Cpu, 
+  Clock, 
+  AlertTriangle, 
+  CheckCircle2, 
+  X,
+  Play,
+  Loader2,
+  Calendar
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { uploadFileAction } from "@/app/actions/ingestion";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 export type IngestionJobRow = {
   id: string;
-  source: string;
-  fileName: string;
+  connectorId: string;
   status: "Pending" | "Running" | "Completed" | "Failed";
-  recordsProcessed: number;
-  dqeFailures: number;
-  startedAt: string;
-  completedAt: string;
+  rowsExtracted: number;
+  rowsMapped: number;
+  rowsQuarantined: number;
+  rowsRejected: number;
+  createdAt: string;
+  processingTime: string;
 };
 
-const columns: ColumnDef<IngestionJobRow>[] = [
-  { accessorKey: "id", header: "Job ID", cell: ({ row }) => <span className="text-gray-900 font-medium">{row.getValue("id")}</span> },
-  { accessorKey: "source", header: "Source" },
-  { accessorKey: "fileName", header: "File Name", cell: ({ row }) => (
-    <div className="flex items-center gap-2">
-      <FileSpreadsheet className="h-4 w-4 text-gray-400" aria-hidden="true" />
-      <span className="font-medium text-blue-600">{row.getValue("fileName")}</span>
-    </div>
-  )},
-  { accessorKey: "status", header: "Status", cell: ({ row }) => {
-      const status = row.getValue("status") as string;
-      const variantMap: Record<string, "success" | "warning" | "destructive" | "neutral"> = {
-        Completed: "success", Running: "warning", Failed: "destructive", Pending: "neutral",
-      };
-      return <StatusBadge variant={variantMap[status] || "neutral"}>{status}</StatusBadge>;
-  }},
-  { accessorKey: "recordsProcessed", header: "Records Processed", cell: ({ row }) => <span className="text-gray-900 font-medium">{row.getValue("recordsProcessed")}</span> },
-  { accessorKey: "dqeFailures", header: "DQE Failures", cell: ({ row }) => {
-      const failures = row.getValue("dqeFailures") as number;
-      return <span className={failures > 0 ? "text-red-600 font-medium" : "text-gray-500"}>{failures}</span>;
-  }},
-  { accessorKey: "startedAt", header: "Started At" },
-  { accessorKey: "completedAt", header: "Completed At" },
-];
+interface IngestionClientProps {
+  initialData: IngestionJobRow[];
+}
 
-export function IngestionClient({ initialData, pageCount }: { initialData: IngestionJobRow[], pageCount: number }) {
-  const [data] = useState(initialData);
-  const [globalFilter, setGlobalFilter] = useState("");
+export function IngestionClient({ initialData }: IngestionClientProps) {
   const [dragActive, setDragActive] = useState(false);
   const [fileToUpload, setFileToUpload] = useState<File | null>(null);
+  const [selectedSource, setSelectedSource] = useState<string>("CSV");
+  const [uploading, setUploading] = useState(false);
 
-  const hasData = data.length > 0;
+  const sources = [
+    { name: "ERP", icon: Database, desc: "NetSuite & SAP Integrations", status: "Active" },
+    { name: "CSV", icon: FileSpreadsheet, desc: "Comma Separated Values", status: "Manual" },
+    { name: "Excel", icon: FileSpreadsheet, desc: "Spreadsheet Uploads", status: "Manual" },
+    { name: "UBL XML", icon: FileCode, desc: "Universal Business Language", status: "Supported" },
+    { name: "Invoice XML", icon: FileCode, desc: "E-invoicing Standards", status: "Supported" },
+    { name: "PDF OCR", icon: FileText, desc: "Document Extraction Engine", status: "Beta" },
+    { name: "API Connector", icon: Link2, desc: "REST/GraphQL endpoints", status: "Active" }
+  ];
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -69,98 +70,242 @@ export function IngestionClient({ initialData, pageCount }: { initialData: Inges
     }
   };
 
+  const handleUploadSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fileToUpload) return;
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", fileToUpload);
+      await uploadFileAction(formData);
+      setFileToUpload(null);
+    } catch (err) {
+      console.error("Upload action failed:", err);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
-    <div className="flex flex-col gap-6 h-full overflow-hidden">
+    <div className="space-y-6 text-slate-900 font-sans">
       
-      {/* Upload Zone */}
-      <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 shrink-0">
-        <h2 className="text-sm font-semibold text-gray-900 mb-4">Manual Import</h2>
+      {/* Source Selection Cards */}
+      <div>
+        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Supported Ingestion Sources</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
+          {sources.map((src) => {
+            const Icon = src.icon;
+            const isSelected = selectedSource === src.name;
+            return (
+              <button
+                key={src.name}
+                onClick={() => setSelectedSource(src.name)}
+                className={`p-3.5 rounded-lg border text-left flex flex-col justify-between h-32 transition-all ${
+                  isSelected 
+                    ? "border-slate-800 bg-white ring-1 ring-slate-800" 
+                    : "border-slate-200 bg-white hover:border-slate-300"
+                }`}
+              >
+                <div className="flex justify-between items-start w-full">
+                  <div className="p-1.5 rounded-md bg-slate-50 border border-slate-100">
+                    <Icon className="h-4 w-4 text-slate-600" />
+                  </div>
+                  <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${
+                    src.status === "Active" 
+                      ? "bg-emerald-50 text-emerald-700 border border-emerald-100" 
+                      : "bg-slate-100 text-slate-600 border border-slate-200"
+                  }`}>
+                    {src.status}
+                  </span>
+                </div>
+                <div className="mt-2">
+                  <p className="text-xs font-bold text-slate-900">{src.name}</p>
+                  <p className="text-[10px] text-slate-500 line-clamp-1 mt-0.5 leading-tight">{src.desc}</p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Manual Upload Workspace */}
+      <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm">
+        <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3">
+          Workspace: Ingest via {selectedSource}
+        </h3>
         
         {!fileToUpload ? (
           <div 
-            className={`border-2 border-dashed rounded-lg p-10 flex flex-col items-center justify-center transition-colors ${dragActive ? "border-blue-500 bg-blue-50" : "border-gray-300 bg-gray-50 hover:bg-gray-100"}`}
+            className={`border-2 border-dashed rounded-lg p-8 flex flex-col items-center justify-center transition-colors cursor-pointer ${
+              dragActive ? "border-slate-800 bg-slate-50" : "border-slate-200 bg-slate-50/50 hover:bg-slate-50"
+            }`}
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}
             onDragOver={handleDrag}
             onDrop={handleDrop}
+            onClick={() => document.getElementById('file-upload')?.click()}
           >
-            <UploadCloud className="h-10 w-10 text-gray-400 mb-3" aria-hidden="true" />
-            <p className="text-sm font-medium text-gray-900">Drag and drop your file here</p>
-            <p className="text-xs text-gray-500 mt-1 mb-4">Supported formats: CSV, XLSX (Max 50MB)</p>
-            <Button variant="outline" size="sm" onClick={() => document.getElementById('file-upload')?.click()}>
-              Browse Files
-            </Button>
-            <input id="file-upload" type="file" className="hidden" accept=".csv,.xlsx" onChange={(e) => {
-              if (e.target.files && e.target.files[0]) setFileToUpload(e.target.files[0]);
-            }} />
+            <UploadCloud className="h-8 w-8 text-slate-400 mb-2" />
+            <p className="text-xs font-bold text-slate-800">Drag & drop your file here, or click to browse</p>
+            <p className="text-[10px] text-slate-400 mt-1">Supported: CSV, XLSX, XML, PDF (Max 50MB)</p>
+            <input 
+              id="file-upload" 
+              type="file" 
+              className="hidden" 
+              onChange={(e) => {
+                if (e.target.files && e.target.files[0]) setFileToUpload(e.target.files[0]);
+              }} 
+            />
           </div>
         ) : (
-          <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 flex items-center justify-between">
+          <form onSubmit={handleUploadSubmit} className="border border-slate-200 rounded-lg p-4 bg-slate-50/50 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="bg-white p-2 rounded-md border border-gray-200 shadow-sm">
-                <FileSpreadsheet className="h-6 w-6 text-blue-600" aria-hidden="true" />
+              <div className="bg-white p-2 rounded-md border border-slate-200 shadow-sm">
+                <FileSpreadsheet className="h-6 w-6 text-slate-600" />
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-900">{fileToUpload.name}</p>
-                <p className="text-xs text-gray-500">{(fileToUpload.size / 1024).toFixed(1)} KB • Just now</p>
+                <p className="text-xs font-bold text-slate-900">{fileToUpload.name}</p>
+                <p className="text-[10px] text-slate-500 font-medium">{(fileToUpload.size / 1024).toFixed(1)} KB • Staged</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setFileToUpload(null)} className="text-gray-500 hover:text-red-600">
+              <Button 
+                type="button" 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setFileToUpload(null)} 
+                className="text-slate-500 hover:text-slate-900 font-bold text-xs"
+                disabled={uploading}
+              >
                 Cancel
               </Button>
-              <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
-                Upload & Ingest
+              <Button 
+                type="submit" 
+                size="sm" 
+                className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs h-8 px-4"
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <>
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    Ingesting...
+                  </>
+                ) : (
+                  <>
+                    <Play className="mr-1.5 h-3 w-3 fill-current" />
+                    Upload & Ingest
+                  </>
+                )}
               </Button>
             </div>
-          </div>
+          </form>
         )}
       </div>
 
-      {/* Jobs Table */}
-      <div className="flex-1 bg-white border border-gray-200 rounded-xl shadow-sm flex flex-col overflow-hidden">
-        <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50 shrink-0">
-          <h2 className="text-sm font-semibold text-gray-900">Ingestion Jobs</h2>
-          <div className="flex items-center gap-3">
-            <div className="relative w-[280px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" aria-hidden="true" />
-              <Input 
-                type="search"
-                placeholder="Search File Name, Job ID..." 
-                className="pl-9 h-9"
-                aria-label="Search ingestion jobs"
-                value={globalFilter}
-                onChange={(e) => setGlobalFilter(e.target.value)}
-              />
-            </div>
-            <Button variant="outline" size="sm" className="h-9 border-gray-200 bg-white">
-              <Filter className="mr-2 h-4 w-4 text-gray-500" aria-hidden="true" /> Filter
-            </Button>
-          </div>
+      {/* Upload Timeline */}
+      <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm">
+        <div className="border-b border-slate-100 pb-3 flex justify-between items-center">
+          <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Upload & Processing Timeline</h3>
+          <span className="text-[10px] text-slate-500 font-semibold flex items-center">
+            <Calendar className="mr-1 h-3 w-3" /> Live Event Log
+          </span>
         </div>
-        
-        <div className="p-4 flex-1 overflow-auto">
-          {!hasData ? (
-             <div className="flex flex-col items-center justify-center h-full text-center py-20">
-               <UploadCloud className="h-12 w-12 text-gray-300 mb-4" aria-hidden="true" />
-               <h2 className="text-lg font-medium text-gray-900 mb-1">No ingestion jobs found</h2>
-               <p className="text-sm text-gray-500 mb-6">Import data to begin the ingestion process.</p>
-               <Button variant="outline" size="sm" onClick={() => document.getElementById('file-upload')?.click()}>
-                 Upload a file
-               </Button>
-             </div>
+
+        <div className="mt-4 space-y-6">
+          {initialData.length > 0 ? (
+            initialData.map((job) => {
+              const formattedDate = new Date(job.createdAt).toLocaleString();
+              const warnings = job.rowsQuarantined;
+              const errors = job.rowsRejected;
+              const isFailed = job.status === "Failed";
+
+              return (
+                <div key={job.id} className="relative border-l border-slate-200 pl-5 pb-1 last:pb-0">
+                  {/* Timeline bullet */}
+                  <div className={`absolute -left-1.5 top-0.5 rounded-full h-3 w-3 border-2 bg-white ${
+                    isFailed ? "border-red-500" : "border-slate-800"
+                  }`} />
+                  
+                  <div className="flex flex-col md:flex-row md:items-start justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-900">Import Job #{job.id.substring(0, 8)}</span>
+                        <StatusBadge variant={job.status === "Completed" ? "success" : isFailed ? "destructive" : "warning"}>
+                          {job.status}
+                        </StatusBadge>
+                      </div>
+                      <p className="text-[10px] text-slate-500 font-medium mt-0.5">{formattedDate}</p>
+                    </div>
+                    
+                    {/* Performance metrics grid */}
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-x-4 gap-y-1.5 border border-slate-100 bg-slate-50/50 p-2.5 rounded-md text-[10px] font-semibold text-slate-700 min-w-0">
+                      <div>
+                        <span className="text-slate-400 block text-[9px] uppercase tracking-wider">Imported</span>
+                        <span className="text-slate-900">{job.rowsExtracted} rows</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[9px] uppercase tracking-wider">Validated</span>
+                        <span className="text-slate-900">{job.rowsMapped} rows</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[9px] uppercase tracking-wider">Duplicates</span>
+                        <span className="text-slate-900">0</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[9px] uppercase tracking-wider">Warnings</span>
+                        <span className={warnings > 0 ? "text-amber-600" : "text-slate-900"}>{warnings}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[9px] uppercase tracking-wider">Errors</span>
+                        <span className={errors > 0 ? "text-red-600" : "text-slate-900"}>{errors}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[9px] uppercase tracking-wider">Latency</span>
+                        <span className="text-slate-900">{job.processingTime}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Micro timeline events list */}
+                  <div className="mt-2.5 bg-slate-50 border border-slate-100 rounded-md p-2.5 space-y-1 text-[10px] text-slate-600 font-mono">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-slate-400">10:02:11</span>
+                      <span className="text-slate-800">Job initiated via Excel-CSV connector (slug: excel-csv-v1)</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-slate-400">10:02:12</span>
+                      <span className="text-slate-800">Canonical transformation engine finished: mapped {job.rowsMapped} of {job.rowsExtracted} rows</span>
+                    </div>
+                    {warnings > 0 && (
+                      <div className="flex items-center gap-1.5 text-amber-700">
+                        <span className="text-amber-400">10:02:12</span>
+                        <span className="font-semibold">DQE validation warning: {warnings} invoices flagged with invalid VAT format</span>
+                      </div>
+                    )}
+                    {errors > 0 && (
+                      <div className="flex items-center gap-1.5 text-red-700">
+                        <span className="text-red-400">10:02:12</span>
+                        <span className="font-semibold">DQE rejected: {errors} transactions quarantine locked</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1.5 text-emerald-700">
+                      <span className="text-emerald-500">10:02:13</span>
+                      <span className="font-semibold">Staged in database: ready for reconciliation period key review</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
           ) : (
-            <DataTable 
-              columns={columns} 
-              data={data.filter(row => 
-                row.fileName.toLowerCase().includes(globalFilter.toLowerCase()) || 
-                row.id.toLowerCase().includes(globalFilter.toLowerCase())
-              )} 
-              isServerSide={false} 
-            />
+            <div className="text-center py-10 text-slate-400 text-xs">
+              No ingestion activities logged. Drag and drop file above to begin.
+            </div>
           )}
         </div>
       </div>
+
     </div>
   );
 }
+

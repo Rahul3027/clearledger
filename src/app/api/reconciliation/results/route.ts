@@ -15,8 +15,6 @@ export async function GET(request: Request) {
 
   try {
     return await withTenant(orgId, async (tx) => {
-      await tx.execute(sql`SET LOCAL app.current_org_id = ${orgId}`);
-      
       const query = tx.select().from(reconciliationResults);
       if (runId) {
         query.where(eq(reconciliationResults.runId, runId));

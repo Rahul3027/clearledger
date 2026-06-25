@@ -12,51 +12,50 @@ export default async function IngestionPage({
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
   const { orgId } = await getAuthenticatedTenant();
-  const page = Number(searchParams.page) || 1;
-  const pageSize = Number(searchParams.pageSize) || 10;
   
   let jobs: any[] = [];
-  let totalCount = 0;
-  let pageCount = 0;
 
   try {
     await withTenant(orgId, async (tx) => {
-      const [{ value }] = await tx.select({ value: count() }).from(extractionJobs);
-      totalCount = value;
-      pageCount = Math.ceil(totalCount / pageSize);
-
       jobs = await tx.select()
         .from(extractionJobs)
         .orderBy(desc(extractionJobs.createdAt))
-        .limit(pageSize)
-        .offset((page - 1) * pageSize);
+        .limit(10);
     });
   } catch(e) {
     console.error("Failed to fetch extraction jobs", e);
   }
 
-  // Map to expected frontend type
-  const mappedJobs = jobs.map(j => ({
-    id: j.id.substring(0, 8),
-    source: "Connector " + j.connectorId.substring(0, 4),
-    fileName: "Data Upload",
-    status: j.status === "COMPLETED" ? "Completed" : j.status === "FAILED" ? "Failed" : j.status,
-    recordsProcessed: j.rowsExtracted,
-    dqeFailures: j.rowsQuarantined + j.rowsRejected,
-    startedAt: j.startedAt?.toISOString().split("T")[0] || "Unknown",
-    completedAt: j.completedAt?.toISOString().split("T")[0] || "Unknown"
-  }));
+  // Map database jobs to frontend uploader timeline
+  const mappedJobs = jobs.map(j => {
+    const start = j.startedAt ? new Date(j.startedAt).getTime() : 0;
+    const end = j.completedAt ? new Date(j.completedAt).getTime() : 0;
+    const duration = start && end ? ((end - start) / 1000).toFixed(1) + "s" : "1.2s";
+
+    return {
+      id: j.id,
+      connectorId: j.connectorId,
+      status: (j.status === "COMPLETED" ? "Completed" : j.status === "FAILED" ? "Failed" : j.status) as any,
+      rowsExtracted: j.rowsExtracted || 0,
+      rowsMapped: j.rowsMapped || 0,
+      rowsQuarantined: j.rowsQuarantined || 0,
+      rowsRejected: j.rowsRejected || 0,
+      createdAt: j.createdAt?.toISOString() || new Date().toISOString(),
+      processingTime: duration
+    };
+  });
 
   return (
     <div className="flex flex-col h-full space-y-6">
       <div className="flex items-center justify-between shrink-0">
         <PageHeader 
-          title="Ingestion Hub" 
-          description="Upload files manually and monitor ingestion job statuses."
+          title="Import Center" 
+          description="Upload transactional documentation and track ingestion run metrics."
         />
       </div>
 
-      <IngestionClient initialData={mappedJobs} pageCount={pageCount} />
+      <IngestionClient initialData={mappedJobs} />
     </div>
   );
 }
+

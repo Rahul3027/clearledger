@@ -48,6 +48,10 @@ export function DataTable<TData, TValue>({
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
   const [rowSelection, setRowSelection] = React.useState({})
+  const [pagination, setPagination] = React.useState({
+    pageIndex: 0,
+    pageSize: 10,
+  })
 
   // Initialize state from URL params if server side
   React.useEffect(() => {
@@ -118,6 +122,21 @@ export function DataTable<TData, TValue>({
     onRowSelectionChange: setRowSelection,
     manualPagination: isServerSide,
     pageCount: isServerSide ? pageCount : undefined,
+    onPaginationChange: (updater) => {
+      if (isServerSide) {
+        const currentPagination = isServerSide && searchParams ? {
+          pageIndex: Number(searchParams.get("page") ?? "1") - 1,
+          pageSize: Number(searchParams.get("pageSize") ?? "10"),
+        } : pagination;
+        const newPagination = typeof updater === 'function' ? updater(currentPagination) : updater;
+        const params = new URLSearchParams(searchParams?.toString())
+        params.set("page", String(newPagination.pageIndex + 1))
+        params.set("pageSize", String(newPagination.pageSize))
+        router.push(pathname + "?" + params.toString(), { scroll: false })
+      } else {
+        setPagination(updater)
+      }
+    },
     state: {
       sorting,
       columnFilters,
@@ -126,7 +145,7 @@ export function DataTable<TData, TValue>({
       pagination: isServerSide && searchParams ? {
         pageIndex: Number(searchParams.get("page") ?? "1") - 1,
         pageSize: Number(searchParams.get("pageSize") ?? "10"),
-      } : undefined,
+      } : pagination,
     },
   })
 

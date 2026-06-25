@@ -5,7 +5,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Filter, ChevronDown, Download, Search, RefreshCw, Inbox } from "lucide-react";
+import { Filter, Download, Search, RefreshCw, Inbox, FileWarning } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
 import { useState } from "react";
@@ -15,6 +15,7 @@ export type ExceptionRow = {
   priority: "High" | "Medium" | "Low";
   status: "OPEN" | "IN_REVIEW" | "WAITING_FOR_INFO" | "RESOLVED" | "CLOSED" | "REOPENED";
   documentNo: string;
+  issueType: string;
   counterparty: string;
   sourceSystem: string;
   variance: string;
@@ -30,7 +31,7 @@ const columns: ColumnDef<ExceptionRow>[] = [
     header: ({ table }) => (
       <input
         type="checkbox"
-        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-4 w-4"
+        className="rounded border-slate-300 text-slate-900 focus:ring-slate-500 h-4 w-4"
         checked={table.getIsAllPageRowsSelected()}
         onChange={(e) => table.toggleAllPageRowsSelected(!!e.target.checked)}
         aria-label="Select all rows"
@@ -39,7 +40,7 @@ const columns: ColumnDef<ExceptionRow>[] = [
     cell: ({ row }) => (
       <input
         type="checkbox"
-        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-4 w-4"
+        className="rounded border-slate-300 text-slate-900 focus:ring-slate-500 h-4 w-4"
         checked={row.getIsSelected()}
         onChange={(e) => row.toggleSelected(!!e.target.checked)}
         aria-label="Select row"
@@ -54,7 +55,7 @@ const columns: ColumnDef<ExceptionRow>[] = [
     cell: ({ row }) => {
       const priority = row.getValue("priority") as string;
       const color = priority === "High" ? "text-red-600" : priority === "Medium" ? "text-amber-600" : "text-blue-600";
-      return <div className="flex items-center gap-1.5"><div className={`h-1.5 w-1.5 rounded-full bg-current ${color}`} /><span className="text-gray-700 font-medium">{priority}</span></div>;
+      return <div className="flex items-center gap-1.5"><div className={`h-1.5 w-1.5 rounded-full bg-current ${color}`} /><span className="text-slate-700 font-medium">{priority}</span></div>;
     }
   },
   {
@@ -77,10 +78,15 @@ const columns: ColumnDef<ExceptionRow>[] = [
     accessorKey: "documentNo",
     header: "Document No.",
     cell: ({ row }) => (
-      <Link href={`/exceptions/${row.original.id}`} className="text-blue-600 font-medium hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-sm">
+      <Link href={`/exceptions/${row.original.id}`} className="text-slate-900 font-bold hover:underline focus:outline-none focus:ring-2 focus:ring-slate-500 rounded-sm">
         {row.getValue("documentNo")}
       </Link>
     )
+  },
+  {
+    accessorKey: "issueType",
+    header: "Issue Type",
+    cell: ({ row }) => <span className="font-bold text-slate-900">{row.getValue("issueType")}</span>
   },
   {
     accessorKey: "counterparty",
@@ -93,23 +99,27 @@ const columns: ColumnDef<ExceptionRow>[] = [
   {
     accessorKey: "variance",
     header: "Variance",
+    cell: ({ row }) => {
+      const val = row.getValue("variance") as string;
+      return <span className={val !== "—" ? "text-red-600 font-bold" : "text-slate-500"}>{val}</span>;
+    }
   },
   {
     accessorKey: "amount",
     header: "Amount",
-    cell: ({ row }) => <span className="font-medium text-gray-900">{row.getValue("amount")}</span>
+    cell: ({ row }) => <span className="font-semibold text-slate-900">{row.getValue("amount")}</span>
   },
   {
     accessorKey: "created",
-    header: "Created",
+    header: "Logged Date",
   },
   {
     accessorKey: "sla",
-    header: "SLA",
+    header: "SLA Status",
     cell: ({ row }) => {
       const sla = row.getValue("sla") as string;
-      const color = sla === "Breached" ? "text-red-600 bg-red-50 border-red-200" : sla === "At Risk" ? "text-amber-600 bg-amber-50 border-amber-200" : "text-gray-600 bg-gray-50 border-gray-200";
-      return <span className={`px-2 py-0.5 rounded text-xs font-medium border ${color}`}>{sla}</span>;
+      const color = sla === "Breached" ? "text-red-600 bg-red-50 border-red-200" : sla === "At Risk" ? "text-amber-600 bg-amber-50 border-amber-200" : "text-slate-600 bg-slate-50 border-slate-200";
+      return <span className={`px-2 py-0.5 rounded text-xs font-semibold border ${color}`}>{sla}</span>;
     }
   },
   {
@@ -117,7 +127,7 @@ const columns: ColumnDef<ExceptionRow>[] = [
     header: "Owner",
     cell: ({ row }) => {
       const owner = row.getValue("owner") as string;
-      return <span className={owner === "Unassigned" ? "text-gray-400 italic" : "text-gray-700"}>{owner}</span>;
+      return <span className={owner === "Unassigned" ? "text-slate-400 italic font-normal" : "text-slate-700"}>{owner}</span>;
     }
   },
 ];
@@ -129,60 +139,60 @@ export function ExceptionQueueClient({ initialData, pageCount }: { initialData: 
   const hasData = data.length > 0;
 
   return (
-    <div className="flex-1 bg-white border border-gray-200 rounded-xl shadow-sm flex flex-col overflow-hidden">
+    <div className="flex-1 bg-white border border-slate-200 rounded-lg shadow-sm flex flex-col overflow-hidden text-xs">
       
       {/* Queue Toolbar (Filters & Actions) */}
-      <div className="p-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="p-3 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
         
         {/* Left Side: Search & Basic Filters */}
         <div className="flex items-center gap-3">
-          <div className="relative w-[280px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" aria-hidden="true" />
+          <div className="relative w-64">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
             <Input 
               type="search"
-              placeholder="Search Document No, Counterparty..." 
-              className="pl-9 h-9"
-              aria-label="Search exceptions"
+              placeholder="Search Document No, Vendor..." 
+              className="pl-8 h-8 text-xs bg-white border-slate-200"
+              aria-label="Search VAT issues"
               value={globalFilter}
               onChange={(e) => setGlobalFilter(e.target.value)}
             />
           </div>
-          <Button variant="outline" size="sm" className="h-9 border-gray-200 bg-gray-50 text-gray-700">
-            <Filter className="mr-2 h-4 w-4 text-gray-500" aria-hidden="true" />
-            Add Filter
+          <Button variant="outline" size="sm" className="h-8 border-slate-200 bg-white text-slate-700 text-xs">
+            <Filter className="mr-1.5 h-3.5 w-3.5 text-slate-500" aria-hidden="true" />
+            Filters
           </Button>
-          <div className="h-4 w-px bg-gray-200 hidden sm:block" />
-          <div className="hidden sm:flex items-center gap-2">
-            <Button variant="ghost" size="sm" className="h-8 text-gray-600 hover:text-gray-900 bg-gray-100 font-medium">
-              Open (124)
+          <div className="h-4 w-px bg-slate-200 hidden sm:block" />
+          <div className="hidden sm:flex items-center gap-1.5">
+            <Button variant="ghost" size="sm" className="h-7 text-slate-600 hover:text-slate-900 bg-slate-100 font-bold px-2.5">
+              Open ({data.filter(d => d.status !== "RESOLVED" && d.status !== "CLOSED").length})
             </Button>
-            <Button variant="ghost" size="sm" className="h-8 text-gray-500 hover:text-gray-900">
-              My Queue (12)
+            <Button variant="ghost" size="sm" className="h-7 text-slate-500 hover:text-slate-900 font-semibold px-2.5">
+              My Queue
             </Button>
-            <Button variant="ghost" size="sm" className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50 font-medium">
-              SLA Breached (18)
+            <Button variant="ghost" size="sm" className="h-7 text-red-600 hover:text-red-700 hover:bg-red-50 font-bold px-2.5">
+              SLA Overdue
             </Button>
           </div>
         </div>
 
         {/* Right Side: Actions */}
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="h-9">
-            <Download className="mr-2 h-4 w-4" aria-hidden="true" />
-            Export
+          <Button variant="outline" size="sm" className="h-8 border-slate-200 bg-white text-xs font-semibold">
+            <Download className="mr-1.5 h-3.5 w-3.5 text-slate-500" aria-hidden="true" />
+            Export CSV
           </Button>
         </div>
       </div>
 
-      <div className="p-4 flex-1 overflow-auto">
+      <div className="p-4 flex-1 overflow-auto bg-white">
         {!hasData ? (
           <div className="flex flex-col items-center justify-center h-full text-center py-20">
-            <Inbox className="h-12 w-12 text-gray-300 mb-4" aria-hidden="true" />
-            <h2 className="text-lg font-medium text-gray-900 mb-1">No open exceptions</h2>
-            <p className="text-sm text-gray-500 mb-6">All transactions have been reviewed.</p>
-            <Button variant="outline" size="sm">
-              <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
-              Refresh
+            <Inbox className="h-10 w-10 text-slate-300 mb-3" aria-hidden="true" />
+            <h2 className="text-sm font-bold text-slate-900 mb-1">No open VAT issues</h2>
+            <p className="text-xs text-slate-500 mb-4">All discrepancies and validation warnings have been reconciled.</p>
+            <Button variant="outline" size="sm" className="h-8 border-slate-200 text-xs bg-white font-medium">
+              <RefreshCw className="mr-1.5 h-3.5 w-3.5 text-slate-500" aria-hidden="true" />
+              Refresh Log
             </Button>
           </div>
         ) : (
@@ -190,7 +200,8 @@ export function ExceptionQueueClient({ initialData, pageCount }: { initialData: 
             columns={columns} 
             data={data.filter(row => 
               row.documentNo.toLowerCase().includes(globalFilter.toLowerCase()) || 
-              row.counterparty.toLowerCase().includes(globalFilter.toLowerCase())
+              row.counterparty.toLowerCase().includes(globalFilter.toLowerCase()) ||
+              row.issueType.toLowerCase().includes(globalFilter.toLowerCase())
             )} 
             isServerSide={false} 
           />
@@ -199,3 +210,4 @@ export function ExceptionQueueClient({ initialData, pageCount }: { initialData: 
     </div>
   );
 }
+

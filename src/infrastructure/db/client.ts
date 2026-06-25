@@ -45,8 +45,8 @@ export async function withTenant<T>(
   callback: (tx: Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0]) => Promise<T>
 ): Promise<T> {
   return await getDb().transaction(async (tx) => {
-    // Set the tenant context securely for this transaction block
-    await tx.execute(sql`SET LOCAL app.current_org_id = ${orgId}`);
+    // Set the tenant context securely for this transaction block using parameter-safe set_config
+    await tx.execute(sql`SELECT set_config('app.current_org_id', ${orgId}, true)`);
     return await callback(tx);
   });
 }

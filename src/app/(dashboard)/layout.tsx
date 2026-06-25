@@ -2,10 +2,11 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { LogOut } from 'lucide-react';
 
 import { Sidebar } from '@/components/layout/sidebar';
 import { Topbar } from '@/components/layout/topbar';
+import { withTenant } from '@/infrastructure/db/client';
+import { entities } from '@/infrastructure/db/schema/entities';
 
 export default async function DashboardLayout({
   children,
@@ -34,6 +35,18 @@ export default async function DashboardLayout({
   const email = user.email || 'user@example.com';
   const orgId = user.user_metadata?.org_id || 'Unknown Organization';
 
+  let entitiesList: any[] = [];
+  try {
+    entitiesList = await withTenant(orgId, async (tx) => {
+      return await tx.select().from(entities);
+    });
+  } catch (err) {
+    console.error("Failed to fetch legal entities:", err);
+  }
+
+  const selectedEntityId = cookieStore.get("selected_entity_id")?.value || (entitiesList[0]?.id || null);
+  const selectedTaxPeriod = cookieStore.get("selected_tax_period")?.value || "2026-06";
+
   return (
     <div className="flex h-screen bg-white overflow-hidden text-gray-900 font-sans">
       
@@ -44,7 +57,13 @@ export default async function DashboardLayout({
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-white">
         
         {/* Topbar */}
-        <Topbar userEmail={email} orgId={orgId} />
+        <Topbar 
+          userEmail={email} 
+          orgId={orgId} 
+          entities={entitiesList}
+          selectedEntityId={selectedEntityId}
+          selectedTaxPeriod={selectedTaxPeriod}
+        />
 
         {/* Scrollable Page Content */}
         <main className="flex-1 overflow-auto bg-[#FAFAFA]">
@@ -57,3 +76,4 @@ export default async function DashboardLayout({
     </div>
   );
 }
+
